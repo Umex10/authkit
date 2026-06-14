@@ -13,6 +13,8 @@ out/
 playwright-report/
 test-results/
 .playwright/
+playwright/.auth/
+blob-report/
 next-env.d.ts
 
 # ===== Env / secrets =====
