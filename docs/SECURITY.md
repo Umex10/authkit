@@ -10,9 +10,14 @@
     Query cache), sent as a Bearer header. Short-lived to limit blast radius.
   - *Refresh token* (30 days): delivered as an **HTTP-only** cookie (`refresh_tk`)
     so client-side JavaScript can never read it — this mitigates token theft via XSS.
-- **The BFF pattern.** The browser never talks to the auth endpoints directly;
-  Next.js Server Actions do, server-side, so the refresh cookie stays HTTP-only
-  end to end.
+- **The BFF pattern (web).** The browser never talks to the auth endpoints
+  directly; Next.js Server Actions do, server-side, so the refresh cookie stays
+  HTTP-only end to end.
+- **Mobile token storage.** A native app has no cookie jar to trust, so
+  `apps/mobile` reads the refresh token from the `Set-Cookie` header and keeps it
+  in the **OS keystore** (`expo-secure-store` → iOS Keychain / Android Keystore),
+  replaying it as a `Cookie:` header on refresh. The access token stays in memory
+  (RTK Query cache), exactly like on the web.
 - **Passwords** are hashed with Spring Security's delegating `PasswordEncoder`
   (bcrypt by default) — never stored or logged in clear text.
 - **No account enumeration.** Wrong credentials return a generic
@@ -38,7 +43,9 @@
 - [ ] **Set a real `JWT_SECRET`** (`openssl rand -base64 48`) via env — never use the dev default.
 - [ ] **Serve over HTTPS** and set the refresh cookie's `secure` flag to `true`
       — in `AuthController#createAuthResponseDto` (backend) and in
-      `setRefreshCookie` (`apps/web/actions/auth-action.ts`).
+      `setRefreshCookie` (`apps/web/actions/auth-action.ts`). Mobile keeps the
+      token in the keystore (no cookie flag to set), but it must talk to the
+      backend over HTTPS too — set `EXPO_PUBLIC_BACKEND_URL` to an `https://` URL.
 - [ ] **Lock down CORS** via `FRONTEND_URL` to your real origin(s); drop the
       localhost defaults in `SecurityConfig` if you don't need them.
 - [ ] **Switch the schema strategy.** `ddl-auto=update` is convenient for getting

@@ -22,7 +22,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { isLoading: isLoadingMe } = useGetMeQuery(undefined, { skip: !hasTk });
 
   if (isLoadingTk || (hasTk && isLoadingMe)) {
-    return <FullPageLoader label="Einen Moment, wir melden dich an …" />;
+    return <FullPageLoader label="One moment, signing you in …" />;
   }
 
   return <>{children}</>;

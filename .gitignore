@@ -13,7 +13,7 @@ out/
 playwright-report/
 test-results/
 .playwright/
-playwright/.auth/
+**/playwright/.auth/
 blob-report/
 next-env.d.ts
 *.tsbuildinfo

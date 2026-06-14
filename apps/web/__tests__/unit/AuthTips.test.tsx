@@ -8,13 +8,13 @@ describe("AuthTips", () => {
     expect(
       screen.getByText(/POST \/auth\/sign-up/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Ein Account, in Sekunden\./i)).toBeInTheDocument();
+    expect(screen.getByText(/An account, in seconds\./i)).toBeInTheDocument();
   });
 
   it("shows sign-in specific guidance", () => {
     render(<AuthTips variant="sign-in" />);
     expect(screen.getByText(/POST \/auth\/sign-in/i)).toBeInTheDocument();
-    expect(screen.getByText(/Willkommen zurück\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Welcome back\./i)).toBeInTheDocument();
   });
 
   it("always points to the Swagger UI", () => {

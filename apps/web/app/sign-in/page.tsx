@@ -21,8 +21,8 @@ import { useSignInMutation } from "@/redux/api/apis/auth";
  * address) so the backend remains the source of truth for unknown accounts.
  */
 const signInSchema = z.object({
-  email: z.string().email("Bitte gib eine gültige E-Mail-Adresse ein."),
-  password: z.string().min(1, "Passwort ist erforderlich."),
+  email: z.string().email("Please enter a valid email address."),
+  password: z.string().min(1, "Password is required."),
 });
 
 /** Form values inferred from {@link signInSchema}; shared with `signInAction`. */
@@ -44,18 +44,18 @@ export default function SignInPage() {
   });
 
   const onSubmit = async (values: SignInFormValues) => {
-    const toastId = toast.loading("Anmeldung läuft …", {
+    const toastId = toast.loading("Signing in …", {
       className: "toast-loading",
     });
     try {
       await signIn(values).unwrap();
-      toast.success("Erfolgreich angemeldet!", {
+      toast.success("Signed in successfully!", {
         id: toastId,
         className: "toast-success",
       });
       router.push("/dashboard");
     } catch (error: any) {
-      const message = error?.message || "Anmeldung fehlgeschlagen.";
+      const message = error?.message || "Sign-in failed.";
       toast.error(message, { id: toastId, className: "toast-error" });
     }
   };
@@ -68,7 +68,7 @@ export default function SignInPage() {
           href="/"
           className="absolute top-6 left-6 text-sm font-medium text-muted-foreground transition-opacity hover:opacity-60"
         >
-          ← Zurück
+          ← Back
         </Link>
         <div className="absolute top-6 right-6">
           <ThemeToggle />
@@ -77,10 +77,10 @@ export default function SignInPage() {
         <div className="mx-auto w-full max-w-sm">
           <div className="mb-8">
             <h1 className="text-3xl font-extrabold tracking-tight">
-              Willkommen zurück
+              Welcome back
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Melde dich an, um zu deinem Dashboard zu gelangen.
+              Sign in to get to your dashboard.
             </p>
           </div>
 
@@ -94,7 +94,7 @@ export default function SignInPage() {
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="email">E-Mail</FieldLabel>
+                    <FieldLabel htmlFor="email">Email</FieldLabel>
                     <Input
                       {...field}
                       id="email"
@@ -120,14 +120,14 @@ export default function SignInPage() {
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="password">Passwort</FieldLabel>
+                    <FieldLabel htmlFor="password">Password</FieldLabel>
                     <div className="flex items-stretch gap-2">
                       <Input
                         {...field}
                         id="password"
                         data-testid="sign-in-password-input"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Dein Passwort"
+                        placeholder="Your password"
                         autoComplete="current-password"
                         aria-invalid={fieldState.invalid}
                         className="h-auto rounded-lg px-3.5 py-2.5 text-sm"
@@ -138,7 +138,7 @@ export default function SignInPage() {
                         onClick={() => setShowPassword((p) => !p)}
                         className="h-auto rounded-lg px-3 text-xs"
                       >
-                        {showPassword ? "Verbergen" : "Zeigen"}
+                        {showPassword ? "Hide" : "Show"}
                       </Button>
                     </div>
                     {fieldState.invalid && (
@@ -158,18 +158,18 @@ export default function SignInPage() {
               disabled={isSigningIn}
               className="mt-1 h-auto w-full rounded-xl py-3 text-sm font-semibold"
             >
-              {isSigningIn ? "Anmeldung läuft …" : "Anmelden"}
+              {isSigningIn ? "Signing in …" : "Sign in"}
               {isSigningIn && <Spinner className="ml-2 size-4 text-current" />}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Noch kein Account?{" "}
+            No account yet?{" "}
             <Link
               href="/sign-up"
               className="font-semibold text-primary hover:opacity-70"
             >
-              Kostenlos registrieren
+              Sign up for free
             </Link>
           </p>
         </div>

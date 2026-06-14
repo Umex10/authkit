@@ -45,6 +45,22 @@ test.describe("Auth flows (already signed-in bootstrap user)", () => {
     await expect(page.locator(".toast-success")).toBeVisible({ timeout: 10_000 });
   });
 
+  test("already signed in: opening the root URL bounces to the dashboard with a note", async ({
+    page,
+    baseURL,
+  }) => {
+    // The bootstrap user is signed in (refresh_tk cookie present). Hitting the
+    // landing page should make proxy.ts redirect straight to the dashboard with
+    // the ?redirected=1 flag, and the dashboard should explain why.
+    await page.goto(`${baseURL}/`);
+    await expect(page).toHaveURL(/\/dashboard\?redirected=1$/, {
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("dashboard-redirect-note")).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("sign-up shows per-field duplicate errors that clear on edit", async ({
     page,
     baseURL,

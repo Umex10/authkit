@@ -12,6 +12,6 @@ describe("Celebration (fun gag)", () => {
     render(<Celebration />);
     expect(screen.getByText("🎉")).toBeInTheDocument();
     // One of the goofy subtitles is shown (default before/after mount).
-    expect(screen.getByText(/geschafft|Magier|Vibes|Profi|erledigt/i)).toBeInTheDocument();
+    expect(screen.getByText(/did it|wizard|vibes|pro|coffee/i)).toBeInTheDocument();
   });
 });

@@ -41,13 +41,13 @@ export default function DashboardPage() {
           data-testid="dashboard-welcome"
           className="text-3xl font-extrabold tracking-tight sm:text-4xl"
         >
-          Du hast es geschafft{user?.name ? `, ${user.name}` : ""}! 🚀
+          You made it{user?.name ? `, ${user.name}` : ""}! 🚀
         </h1>
         <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-          Du bist eingeloggt. Das bedeutet: Sign-up/Sign-in, der HTTP-only
-          Refresh-Cookie, der Access-Token und die geschützte Route{" "}
-          <code className="rounded bg-muted px-1 py-0.5">GET /me</code> haben alle
-          funktioniert.
+          You’re logged in. That means sign-up/sign-in, the HTTP-only refresh
+          cookie, the access token and the protected route{" "}
+          <code className="rounded bg-muted px-1 py-0.5">GET /me</code> all
+          worked.
         </p>
       </div>
 
@@ -55,14 +55,14 @@ export default function DashboardPage() {
       {user && (
         <div className="w-full max-w-md rounded-xl border border-border bg-card p-6">
           <h2 className="mb-4 text-sm font-semibold text-muted-foreground">
-            Dein Account (via <code>GET /me</code>)
+            Your account (via <code>GET /me</code>)
           </h2>
           <dl className="flex flex-col gap-3 text-sm">
             <Row label="Name" value={user.name} />
-            <Row label="E-Mail" value={user.email} />
-            <Row label="Telefon" value={user.phone} />
+            <Row label="Email" value={user.email} />
+            <Row label="Phone" value={user.phone} />
             <Row
-              label="Rolle"
+              label="Role"
               value={
                 <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
                   {user.role}
@@ -74,11 +74,11 @@ export default function DashboardPage() {
       )}
 
       <div className="w-full max-w-md rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-        <p className="font-semibold text-foreground">Wie geht's weiter?</p>
+        <p className="font-semibold text-foreground">What’s next?</p>
         <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5">
-          <li>Baue deine Features unter <code>app/(shell)/</code> — sie sind automatisch geschützt.</li>
-          <li>Neue API-Calls als RTK-Query-Endpoints neben <code>me.ts</code>.</li>
-          <li>Rollen/Logik im Backend unter <code>com.authkit.backend</code>.</li>
+          <li>Build your features under <code>app/(shell)/</code> — they’re protected automatically.</li>
+          <li>Add new API calls as RTK Query endpoints next to <code>me.ts</code>.</li>
+          <li>Roles/logic live in the backend under <code>com.authkit.backend</code>.</li>
         </ul>
       </div>
     </div>

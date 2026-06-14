@@ -14,7 +14,7 @@ export function Spinner({ className }: { className?: string }) {
       fill="none"
       viewBox="0 0 24 24"
       role="status"
-      aria-label="Wird geladen"
+      aria-label="Loading"
     >
       <circle
         className="opacity-25"

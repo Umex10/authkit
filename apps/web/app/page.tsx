@@ -5,23 +5,23 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const FEATURES = [
   {
     icon: "🔐",
-    title: "JWT, richtig gemacht",
-    text: "Kurzlebiger Access-Token + HTTP-only Refresh-Cookie. Stateless, sicher, fertig.",
+    title: "JWT, done right",
+    text: "Short-lived access token + HTTP-only refresh cookie. Stateless, safe, done.",
   },
   {
     icon: "🧩",
-    title: "Rollen & @PreAuthorize",
-    text: "USER/ADMIN out of the box, methoden­basierte Autorisierung inklusive.",
+    title: "Roles & @PreAuthorize",
+    text: "USER/ADMIN out of the box, method-level authorization included.",
   },
   {
     icon: "⚡",
     title: "Next.js + RTK Query",
-    text: "Server Actions halten Tokens serverseitig, RTK Query cached den Rest.",
+    text: "Server Actions keep tokens server-side, RTK Query caches the rest.",
   },
   {
     icon: "📖",
-    title: "Swagger & Tests",
-    text: "Live-API-Docs mit Authorize-Button und eine grüne Testsuite.",
+    title: "Swagger & tests",
+    text: "Live API docs with an Authorize button and a green test suite.",
   },
 ];
 
@@ -44,7 +44,7 @@ export default function Home() {
               className="rounded-full px-4"
               data-testid="landing-sign-in-link"
             >
-              <Link href="/sign-in">Anmelden</Link>
+              <Link href="/sign-in">Sign in</Link>
             </Button>
             <Button
               asChild
@@ -52,7 +52,7 @@ export default function Home() {
               className="rounded-full px-5"
               data-testid="landing-get-started-link"
             >
-              <Link href="/sign-up">Loslegen</Link>
+              <Link href="/sign-up">Get started</Link>
             </Button>
           </div>
         </div>
@@ -62,20 +62,20 @@ export default function Home() {
       <main className="flex-1">
         <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 pt-24 pb-16 text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3.5 py-1.5 text-sm font-medium text-primary">
-            ✨ Klonen · Starten · Eingeloggt
+            ✨ Clone · Start · Logged in
           </span>
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
-            Authentifizierung, die du{" "}
-            <span className="text-primary">nie wieder</span> neu schreibst.
+            Authentication you{" "}
+            <span className="text-primary">never rewrite</span> again.
           </h1>
           <p className="max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            AuthKit ist ein wiederverwendbarer Auth-Microservice: Spring-Boot-Backend
-            und Next.js-Frontend mit Sign-up, Sign-in, Refresh-Tokens, Rollen,
-            Swagger und Tests. Starte dein nächstes Projekt mit fertiger Anmeldung.
+            AuthKit is a reusable auth microservice: a Spring Boot backend and a
+            Next.js frontend with sign-up, sign-in, refresh tokens, roles,
+            Swagger and tests. Start your next project with auth already done.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button asChild size="lg" className="h-auto rounded-xl px-6 py-3 text-sm">
-              <Link href="/sign-up">Account erstellen</Link>
+              <Link href="/sign-up">Create account</Link>
             </Button>
             <Button
               asChild
@@ -83,7 +83,7 @@ export default function Home() {
               size="lg"
               className="h-auto rounded-xl px-6 py-3 text-sm"
             >
-              <Link href="/sign-in">Ich habe schon einen Account</Link>
+              <Link href="/sign-in">I already have an account</Link>
             </Button>
           </div>
         </section>

@@ -2,21 +2,43 @@
 
 > A reusable, drop-in **authentication microservice** — clone it, start it, and you have working sign-up, sign-in, JWT sessions, roles, Swagger and tests on day one.
 
-AuthKit is a small monorepo with a **Spring Boot** backend and **two interchangeable frontends** — a **Next.js** web app and a **React Native** mobile app — that each implement the same complete, production-style auth flow against the one backend:
-
-> **Clone it, then pick your frontend:** building a website? Use `apps/web` (Next.js). Building a mobile app? Use `apps/mobile` (React Native). Both talk to the same `apps/backend` and share the same auth model, screens and design — so you can switch or keep both.
-
+AuthKit is a small monorepo with a **Spring Boot** backend and **two interchangeable frontends** — a **Next.js** web app and a **React Native** mobile app — that each implement the same complete, production-style auth flow against the one backend ([which one should I use?](#-which-frontend-should-i-use)):
 
 - ✅ Sign-up & sign-in with server-side validation
 - ✅ Short-lived **access token** (15 min) + long-lived **refresh token** (30 days) in an **HTTP-only cookie**
 - ✅ Stateless JWT security, role-based authorization (`USER` / `ADMIN`)
 - ✅ A protected example route (`GET /me`) and an admin-only route (`@PreAuthorize`)
 - ✅ Live **Swagger UI** with an `Authorize 🔒` button
-- ✅ Modern frontend: App Router, **Redux Toolkit Query**, **Server Actions** (BFF), route protection via `proxy.ts`
-- ✅ Tests everywhere: Spring integration tests, Vitest unit tests, Playwright e2e (with a throwaway DB)
+- ✅ Modern frontends: **Redux Toolkit Query** on both — Next.js App Router + Server Actions (web) and Expo Router + secure keystore (mobile); route protection via `proxy.ts` / `AuthProvider`
+- ✅ Tests everywhere: Spring integration tests, Vitest + Playwright e2e (web), Jest + React Native Testing Library (mobile)
 - ✅ One `docker compose up` away from running
 
 It was extracted, almost 1:1, from a production app — so it is not a toy. Use it as the starting point for any new project that needs auth, and as a reference for how the pieces fit together.
+
+---
+
+## 🧭 Which frontend should I use?
+
+The heart of AuthKit is the **backend in `apps/backend`** — a self-contained
+**authentication microservice**. The two frontends are just reference clients of
+it. Decide based on what you're building, then keep that app and (optionally)
+delete the other:
+
+| You are building… | Use | Why |
+|-------------------|-----|-----|
+| **A website / web app** | **`apps/web`** (Next.js) | Server-rendered web client; refresh token kept in an HTTP-only cookie via Server Actions. |
+| **A mobile app** (new or existing) | **`apps/mobile`** (React Native / Expo) | Native client; refresh token kept in the device keystore. Drop the auth microservice into your app whenever you "just need login". |
+
+**Already have an app?** You don't have to adopt a whole frontend. Run
+`apps/backend` as a standalone auth microservice and point your existing app at
+its HTTP API (`/api/v1/auth/**`, `/api/v1/me`, …). `apps/web` and `apps/mobile`
+then double as **copy-paste reference implementations** of the client side — the
+RTK Query layer, the token/refresh handling and the route guards are all there to
+lift into your codebase.
+
+Both frontends share the same screens, design and auth state machine, so moving
+between them (or running both) is straightforward. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full flow.
 
 ---
 

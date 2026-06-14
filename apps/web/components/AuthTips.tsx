@@ -16,16 +16,16 @@ export function AuthTips({
   const tips =
     variant === "sign-up"
       ? [
-          "Deine Daten gehen an POST /auth/sign-up im Spring-Backend.",
-          "Das Passwort wird serverseitig gehasht — niemals im Klartext gespeichert.",
-          "Du bekommst sofort einen Access-Token + einen HTTP-only Refresh-Cookie.",
-          "Danach wirst du automatisch aufs Dashboard weitergeleitet.",
+          "Your details go to POST /auth/sign-up on the Spring backend.",
+          "The password is hashed server-side — never stored in plain text.",
+          "You instantly get an access token + an HTTP-only refresh cookie.",
+          "Then you're redirected to the dashboard automatically.",
         ]
       : [
-          "Deine Eingaben gehen an POST /auth/sign-in.",
-          "Bei Erfolg setzt das Backend den refresh_tk-Cookie (HTTP-only).",
-          "Der kurzlebige Access-Token landet im RTK-Query-Cache.",
-          "proxy.ts schützt alle Routen außer /, /sign-in und /sign-up.",
+          "Your input goes to POST /auth/sign-in.",
+          "On success the backend sets the refresh_tk cookie (HTTP-only).",
+          "The short-lived access token lands in the RTK Query cache.",
+          "proxy.ts protects every route except /, /sign-in and /sign-up.",
         ];
 
   return (
@@ -37,12 +37,12 @@ export function AuthTips({
         </div>
         <h2 className="text-2xl font-bold leading-tight">
           {variant === "sign-up"
-            ? "Ein Account, in Sekunden."
-            : "Willkommen zurück."}
+            ? "An account, in seconds."
+            : "Welcome back."}
         </h2>
         <p className="text-sm leading-relaxed opacity-80">
-          Ein wiederverwendbares Auth-System: Spring Boot + Next.js, JWT,
-          Rollen, Swagger und Tests. Klonen, starten, loslegen.
+          A reusable auth system: Spring Boot + Next.js, JWT, roles, Swagger and
+          tests. Clone it, start it, build.
         </p>
       </div>
 
@@ -56,13 +56,13 @@ export function AuthTips({
       </ul>
 
       <div className="rounded-lg bg-white/10 px-4 py-3 text-xs leading-relaxed opacity-90">
-        <p className="font-semibold">Tipp für Entwickler:innen</p>
+        <p className="font-semibold">Developer tip</p>
         <p className="mt-1">
-          Die API-Routen erkundest du live unter{" "}
+          Explore the API routes live at{" "}
           <code className="rounded bg-white/15 px-1 py-0.5">
             {API_BASE_URL}/swagger-ui.html
           </code>{" "}
-          — inkl. „Authorize 🔒"-Button.
+          — including the “Authorize 🔒” button.
         </p>
       </div>
     </aside>

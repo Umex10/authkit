@@ -24,7 +24,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={`rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted ${className ?? ""}`}
-      aria-label={isDark ? "Zum hellen Modus wechseln" : "Zum dunklen Modus wechseln"}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
       {isDark ? (
         /* Sun icon */

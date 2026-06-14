@@ -31,15 +31,15 @@ import { useSignUpMutation } from "@/redux/api/apis/auth";
  * plus a UI-only `terms` checkbox that never reaches the API.
  */
 const signUpSchema = z.object({
-  name: z.string().min(2, "Name muss mindestens 2 Zeichen lang sein."),
-  email: z.string().email("Bitte gib eine gültige E-Mail-Adresse ein."),
+  name: z.string().min(2, "Name must be at least 2 characters."),
+  email: z.string().email("Please enter a valid email address."),
   phone: z
     .string()
-    .min(10, "Bitte gib eine gültige Telefonnummer ein (mind. 10 Zeichen)."),
-  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein."),
-  role: z.enum(["USER", "ADMIN"], { message: "Bitte wähle eine Rolle aus." }),
+    .min(10, "Please enter a valid phone number (at least 10 characters)."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  role: z.enum(["USER", "ADMIN"], { message: "Please pick a role." }),
   terms: z.boolean().refine((val) => val === true, {
-    message: "Du musst die Bedingungen akzeptieren.",
+    message: "You must accept the terms.",
   }),
 });
 
@@ -70,18 +70,18 @@ export default function SignUpPage() {
   });
 
   const onSubmit = async (values: SignUpFormValues) => {
-    const toastId = toast.loading("Account wird erstellt …", {
+    const toastId = toast.loading("Creating account …", {
       className: "toast-loading",
     });
     try {
       await signUp(values).unwrap();
-      toast.success("Account erfolgreich erstellt!", {
+      toast.success("Account created successfully!", {
         id: toastId,
         className: "toast-success",
       });
       router.push("/dashboard");
     } catch (error: any) {
-      const message = error?.message || "Registrierung fehlgeschlagen.";
+      const message = error?.message || "Sign-up failed.";
       toast.error(message, { id: toastId, className: "toast-error" });
 
       // Replay backend field errors (errors[].field) onto the form inputs.
@@ -101,7 +101,7 @@ export default function SignUpPage() {
           href="/"
           className="absolute top-6 left-6 text-sm font-medium text-muted-foreground transition-opacity hover:opacity-60"
         >
-          ← Zurück
+          ← Back
         </Link>
         <div className="absolute top-6 right-6">
           <ThemeToggle />
@@ -110,10 +110,10 @@ export default function SignUpPage() {
         <div className="mx-auto w-full max-w-sm">
           <div className="mb-8">
             <h1 className="text-3xl font-extrabold tracking-tight">
-              Account erstellen
+              Create account
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              In Sekunden registriert — und sofort eingeloggt.
+              Registered in seconds — and logged in right away.
             </p>
           </div>
 
@@ -128,7 +128,7 @@ export default function SignUpPage() {
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="name">Vollständiger Name</FieldLabel>
+                    <FieldLabel htmlFor="name">Full name</FieldLabel>
                     <Input
                       {...field}
                       id="name"
@@ -153,7 +153,7 @@ export default function SignUpPage() {
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="email">E-Mail</FieldLabel>
+                    <FieldLabel htmlFor="email">Email</FieldLabel>
                     <Input
                       {...field}
                       id="email"
@@ -179,7 +179,7 @@ export default function SignUpPage() {
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="phone">Telefonnummer</FieldLabel>
+                    <FieldLabel htmlFor="phone">Phone number</FieldLabel>
                     <Input
                       {...field}
                       id="phone"
@@ -205,14 +205,14 @@ export default function SignUpPage() {
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="password">Passwort</FieldLabel>
+                    <FieldLabel htmlFor="password">Password</FieldLabel>
                     <div className="flex items-stretch gap-2">
                       <Input
                         {...field}
                         id="password"
                         data-testid="sign-up-password-input"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Mindestens 6 Zeichen"
+                        placeholder="At least 6 characters"
                         autoComplete="new-password"
                         aria-invalid={fieldState.invalid}
                         className="h-auto rounded-lg px-3.5 py-2.5 text-sm"
@@ -223,7 +223,7 @@ export default function SignUpPage() {
                         onClick={() => setShowPassword((p) => !p)}
                         className="h-auto rounded-lg px-3 text-xs"
                       >
-                        {showPassword ? "Verbergen" : "Zeigen"}
+                        {showPassword ? "Hide" : "Show"}
                       </Button>
                     </div>
                     {fieldState.invalid && (
@@ -241,7 +241,7 @@ export default function SignUpPage() {
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="role">Rolle</FieldLabel>
+                    <FieldLabel htmlFor="role">Role</FieldLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
@@ -286,7 +286,7 @@ export default function SignUpPage() {
                       htmlFor="terms"
                       className="cursor-pointer leading-snug font-normal text-muted-foreground"
                     >
-                      Ich akzeptiere die Bedingungen und die Datenschutzrichtlinie.
+                      I accept the terms and the privacy policy.
                     </Label>
                   </div>
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -300,19 +300,19 @@ export default function SignUpPage() {
               disabled={isSigningUp}
               className="mt-1 h-auto w-full rounded-xl py-3 text-sm font-semibold"
             >
-              {isSigningUp ? "Registrierung läuft …" : "Registrieren"}
+              {isSigningUp ? "Signing up …" : "Sign up"}
               {isSigningUp && <Spinner className="ml-2 size-4 text-current" />}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Bereits registriert?{" "}
+            Already registered?{" "}
             <Link
               href="/sign-in"
               data-testid="sign-up-sign-in-link"
               className="font-semibold text-primary hover:opacity-70"
             >
-              Anmelden
+              Sign in
             </Link>
           </p>
         </div>

@@ -24,11 +24,11 @@ const CONFETTI_COLORS = [
 
 /** A few interchangeable, deliberately goofy congratulation lines. */
 const SUBTITLES = [
-  "Du hast es geschafft! 🎉",
-  "Auth funktioniert. Du bist offiziell ein:e Magier:in. 🪄",
-  "Token gültig, Vibes unbezahlbar. ✨",
-  "Eingeloggt wie ein Profi. 😎",
-  "Das war's — Auth ist erledigt, geh Kaffee holen. ☕",
+  "You did it! 🎉",
+  "Auth works. You're officially a wizard. 🪄",
+  "Token valid, vibes priceless. ✨",
+  "Logged in like a pro. 😎",
+  "That's it — auth is done, go grab a coffee. ☕",
 ];
 
 /** Deterministic pseudo-random so confetti looks varied without Math.random in render. */

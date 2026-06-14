@@ -25,7 +25,7 @@ export function SignOutButton() {
       onClick={handleSignOut}
       className="rounded-full px-4"
     >
-      Abmelden
+      Sign out
     </Button>
   );
 }

@@ -16,9 +16,11 @@ The roles are deliberately generic (`USER`, `ADMIN`). To use your own:
    ```
    That's the single source of truth — it flows automatically into the JWT
    authorities (`ROLE_OWNER`, …) and every `@PreAuthorize("hasRole('OWNER')")`.
-2. **Frontend** — update the union in `apps/web/types/User.ts` and the
+2. **Web frontend** — update the union in `apps/web/types/User.ts` and the
    `<SelectItem>` options + the Zod `z.enum([...])` in
    `apps/web/app/sign-up/page.tsx`.
+3. **Mobile frontend** — the same two changes in `apps/mobile/types/User.ts` and
+   the `<Select>` `options` + Zod `z.enum([...])` in `apps/mobile/app/sign-up.tsx`.
 
 ---
 
@@ -54,6 +56,10 @@ export const { useGetProjectsQuery } = projectsApi;
 The access token is attached automatically. Put new pages under
 `apps/web/app/(shell)/` and they're protected by `proxy.ts` + `AuthProvider` for free.
 
+The mobile app is identical: add the same RTK Query endpoint under
+`apps/mobile/redux/api/apis/` and put new screens under `apps/mobile/app/(shell)/`,
+where `AuthProvider` protects them automatically.
+
 ---
 
 ## Re-theme
@@ -61,6 +67,11 @@ The access token is attached automatically. Put new pages under
 Colors and radius are CSS variables in `apps/web/app/globals.css` (a standard
 shadcn/ui token set). Change `--primary` (and its dark-mode value) to rebrand.
 The font is set in `apps/web/app/layout.tsx` (`next/font`).
+
+On mobile the same violet tokens live in `apps/mobile/components/theme/themes.ts`
+(the live light/dark values applied via NativeWind `vars()`), mirrored in
+`apps/mobile/global.css` and `apps/mobile/tailwind.config.js`. Change `--primary`
+in all three to match.
 
 ---
 
@@ -77,6 +88,9 @@ To remove it completely:
 
 Nothing else depends on it — the dashboard becomes a plain welcome screen.
 
+The mobile app has the same gag: delete `apps/mobile/components/fun/` and remove
+the `Celebration` import + usage in `apps/mobile/app/(shell)/dashboard.tsx`.
+
 The "tips" panel next to the auth forms (`apps/web/components/AuthTips.tsx`) is
 separate from the gag; it's genuinely useful onboarding text. Replace it with
 your own marketing, or remove the `<AuthTips />` usage in the sign-in/sign-up
@@ -91,4 +105,6 @@ pages if you prefer a single-column layout.
 - Database name, container names and the `JWT_SECRET` default live in
   `apps/backend/src/main/resources/application*.properties` and
   `docker-compose*.yml`.
-- Frontend package name in `apps/web/package.json`.
+- Frontend package names in `apps/web/package.json` and
+  `apps/mobile/package.json` (plus the app `name`/`slug`/bundle identifiers in
+  `apps/mobile/app.json`).
