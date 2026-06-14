@@ -20,7 +20,10 @@ export default function ShellLayout({
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
           <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+            {/* Goes to the root URL on purpose. If you're still signed in,
+                proxy.ts will bounce you right back to /dashboard with the
+                "already signed in" note — demonstrating the redirect flow. */}
+            <Link href="/" className="flex items-center gap-2 font-semibold">
               <span className="text-xl">🔐</span>
               <span>AuthKit</span>
             </Link>

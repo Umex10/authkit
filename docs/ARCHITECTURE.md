@@ -122,6 +122,22 @@ sequenceDiagram
     end
 ```
 
+### The reverse: already signed in
+
+The same cookie check works the other way around. If you **already** have a
+`refresh_tk` cookie and open the landing page (`/`), `/sign-in` or `/sign-up`,
+`proxy.ts` sends you **straight to `/dashboard`** — no reason to show the
+marketing or auth pages again. The landing-page redirect adds a `?redirected=1`
+flag, and the dashboard shows a short "you're already signed in" note so the
+convenience redirect is visible rather than magic. (The AuthKit logo in the
+header intentionally links to `/`, so clicking it from the dashboard demonstrates
+this exact bounce.)
+
+The **mobile app** reproduces this without middleware: the landing screen checks
+the keystore for a refresh token on mount and `router.replace`s to the dashboard
+(with the same flag) when one is present — see `app/index.tsx` and
+`components/AuthProvider.tsx`.
+
 ---
 
 ## 5. How a request gets authenticated on the backend
@@ -161,8 +177,15 @@ servlet filter, which would otherwise run it twice). See
 | Token | Lifetime | Where it lives | Sent how |
 |-------|----------|----------------|----------|
 | **Access token** | 15 minutes | RTK Query cache (memory) | `Authorization: Bearer …` header |
-| **Refresh token** | 30 days | `refresh_tk` **HTTP-only** cookie | automatically by the browser to the BFF |
+| **Refresh token** | 30 days | `refresh_tk` **HTTP-only** cookie (web) / **OS keystore** via expo-secure-store (mobile) | browser cookie jar → BFF (web) / explicit `Cookie:` header (mobile) |
 
 The backend is **stateless** — it stores no sessions. Signing out simply deletes
-the refresh cookie; any still-valid access token expires on its own within 15
-minutes.
+the refresh token (cookie on web, keystore entry on mobile); any still-valid
+access token expires on its own within 15 minutes.
+
+> **Two frontends, one backend.** `apps/web` (Next.js) and `apps/mobile` (React
+> Native / Expo) are interchangeable clients of the same API. The only real
+> difference is *where the refresh token lives* — an HTTP-only cookie managed by
+> Next.js Server Actions on the web, versus the OS keystore on mobile (which
+> reads the `Set-Cookie` header and replays it as a `Cookie:` header). The Redux/
+> RTK Query layer, the Zod schemas and the screens are otherwise near-identical.

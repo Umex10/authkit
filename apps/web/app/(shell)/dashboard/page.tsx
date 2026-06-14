@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useGetMeQuery } from "@/redux/api/apis/me";
 import { Spinner } from "@/components/ui/loader";
 // FUN GAG (optional): remove this import and the <Celebration/> usage below to
@@ -26,6 +28,11 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col items-center gap-10 py-10">
+      {/* Shown only when proxy.ts bounced an already-signed-in visitor here. */}
+      <Suspense fallback={null}>
+        <RedirectNote />
+      </Suspense>
+
       {/* FUN GAG (optional) — confetti + a goofy subtitle. */}
       <Celebration />
 
@@ -83,6 +90,32 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-center justify-between gap-4">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * A small banner shown when `proxy.ts` redirected an already-authenticated
+ * visitor here (from `/`, `/sign-in` or `/sign-up`). It surfaces the convenience
+ * redirect so the user understands they didn't have to sign in again — the
+ * refresh cookie was still valid. Reads the `?redirected=1` flag the middleware
+ * appends.
+ */
+function RedirectNote() {
+  const wasRedirected = useSearchParams().get("redirected") === "1";
+  if (!wasRedirected) return null;
+
+  return (
+    <div
+      data-testid="dashboard-redirect-note"
+      className="w-full max-w-md rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground"
+    >
+      <p className="font-semibold text-primary">👋 Welcome back — you’re already signed in.</p>
+      <p className="mt-1 text-muted-foreground">
+        Your refresh cookie was still valid, so{" "}
+        <code className="rounded bg-muted px-1 py-0.5">proxy.ts</code> sent you
+        straight here instead of showing the landing or sign-in page again.
+      </p>
     </div>
   );
 }

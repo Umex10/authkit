@@ -1,12 +1,14 @@
 # Testing
 
-AuthKit has three test layers. All of them pass out of the box.
+AuthKit has test layers across the backend and both frontends. All of them pass
+out of the box.
 
 | Layer | Tool | Location | What it proves |
 |-------|------|----------|----------------|
 | Backend unit + integration | JUnit 5, MockMvc, Spring Security Test | `apps/backend/src/test` | Token logic, sign-up rules, the auth endpoints, the JWT filter, role-based access |
-| Frontend unit | Vitest + Testing Library | `apps/web/__tests__/unit` | Pure helpers and components render correctly |
-| End-to-end | Playwright (Chromium) | `apps/web/__tests__/e2e` | The real browser flow against the real backend + database |
+| Web unit | Vitest + Testing Library | `apps/web/__tests__/unit` | Pure helpers and components render correctly |
+| Web end-to-end | Playwright (Chromium) | `apps/web/__tests__/e2e` | The real browser flow against the real backend + database |
+| Mobile unit | Jest (`jest-expo`) + React Native Testing Library | `apps/mobile/__tests__` | Pure helpers and RN components (Button, Select) behave correctly |
 
 ---
 
@@ -39,6 +41,27 @@ npm run test:unit:watch    # watch mode
 ```
 
 Fast jsdom tests — no servers needed.
+
+---
+
+## Mobile unit tests
+
+```bash
+cd apps/mobile
+npm install
+npm test                   # one-shot (jest)
+npm run test:watch         # watch mode
+```
+
+Runs under **`jest-expo`** with **React Native Testing Library** — pure Node, no
+simulator or device needed. The suite covers the `cn` helper and the shared UI
+primitives (`Button`, `Select`) the auth screens are built from.
+
+> **End-to-end on mobile?** Browser-style Playwright doesn't apply to a native
+> app. The equivalent would be **Maestro** or **Detox** driving a simulator/
+> emulator — that needs a built app and a device, so it isn't wired into CI here.
+> The auth flow itself is identical to the web app's (same backend, same RTK
+> Query layer), which the web e2e suite already exercises end to end.
 
 ---
 

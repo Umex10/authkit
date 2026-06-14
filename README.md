@@ -2,7 +2,10 @@
 
 > A reusable, drop-in **authentication microservice** — clone it, start it, and you have working sign-up, sign-in, JWT sessions, roles, Swagger and tests on day one.
 
-AuthKit is a small monorepo with a **Spring Boot** backend and a **Next.js** frontend that together implement a complete, production-style auth flow:
+AuthKit is a small monorepo with a **Spring Boot** backend and **two interchangeable frontends** — a **Next.js** web app and a **React Native** mobile app — that each implement the same complete, production-style auth flow against the one backend:
+
+> **Clone it, then pick your frontend:** building a website? Use `apps/web` (Next.js). Building a mobile app? Use `apps/mobile` (React Native). Both talk to the same `apps/backend` and share the same auth model, screens and design — so you can switch or keep both.
+
 
 - ✅ Sign-up & sign-in with server-side validation
 - ✅ Short-lived **access token** (15 min) + long-lived **refresh token** (30 days) in an **HTTP-only cookie**
@@ -23,13 +26,20 @@ It was extracted, almost 1:1, from a production app — so it is not a toy. Use 
 # 1. Start the database + backend (+ a mirrored Swagger UI)
 docker compose up -d
 
-# 2. Start the frontend
+# 2a. …then start the WEB frontend (Next.js)
 cd apps/web
 npm install
-npm run dev
+npm run dev          # → http://localhost:3000
+
+# 2b. …OR start the MOBILE frontend (React Native / Expo)
+cd apps/mobile
+npm install
+npx expo start       # → press i / a, or scan the QR with Expo Go
 ```
 
-Then open **http://localhost:3000**, click **Loslegen**, register — and you land on a dashboard that says *„Du hast es geschafft!"* 🎉
+Open the web app at **http://localhost:3000** (or launch the mobile app), register — and you land on a dashboard that says *"You made it!"* 🎉
+
+> Mobile note: on an emulator/phone, `localhost` is the device, not your computer. See [apps/mobile/README.md](apps/mobile/README.md) for the per-platform backend URL.
 
 > No configuration needed: every value has a sensible default. See [docs/RUNNING.md](docs/RUNNING.md) for all the variations (full Docker, manual dev, individual services).
 
@@ -41,7 +51,8 @@ Then open **http://localhost:3000**, click **Loslegen**, register — and you la
 authkit/
 ├── apps/
 │   ├── backend/        Spring Boot 4 · Java 21 · JWT · Spring Security · springdoc
-│   └── web/            Next.js 16 · React 19 · Redux Toolkit Query · Tailwind v4 · shadcn/ui
+│   ├── web/            Next.js 16 · React 19 · Redux Toolkit Query · Tailwind v4 · shadcn/ui
+│   └── mobile/         Expo · React Native · Expo Router · NativeWind · Redux Toolkit Query
 ├── docker-compose.yml         Postgres + backend + Swagger UI
 ├── docker-compose.test.yml    Throwaway Postgres for e2e tests
 └── docs/                      You are here-ish
@@ -96,7 +107,8 @@ Explore them live at **http://localhost:8080/api/v1/swagger-ui.html**.
 ## 🛠️ Tech stack
 
 **Backend:** Spring Boot 4, Java 21, Spring Security, JJWT, Spring Data JPA, PostgreSQL / H2, springdoc-openapi.
-**Frontend:** Next.js 16 (App Router), React 19, Redux Toolkit Query, react-hook-form + Zod, Tailwind CSS v4, shadcn/ui, sonner.
+**Web frontend:** Next.js 16 (App Router), React 19, Redux Toolkit Query, react-hook-form + Zod, Tailwind CSS v4, shadcn/ui, sonner.
+**Mobile frontend:** Expo, React Native, Expo Router, NativeWind, Redux Toolkit Query, react-hook-form + Zod, sonner-native, expo-secure-store.
 **Testing:** JUnit 5 + MockMvc + Spring Security Test, Vitest + Testing Library, Playwright.
 
 ---

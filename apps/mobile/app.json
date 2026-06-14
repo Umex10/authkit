@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "AuthKit",
+    "slug": "authkit-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "authkit",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.authkit.mobile"
+    },
+    "android": {
+      "package": "com.authkit.mobile",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-asset",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

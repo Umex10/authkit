@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════
+   AuthKit design tokens — light-mode fallback.
+   The live values (incl. dark mode) are applied at runtime in
+   components/theme/themes.ts via NativeWind's vars(), so toggling the
+   colour scheme re-themes every class at once. Keep these in sync.
+   ═══════════════════════════════════════════════════════════════ */
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 24 24 27;
+    --card: 255 255 255;
+    --card-foreground: 24 24 27;
+    --popover: 255 255 255;
+    --popover-foreground: 24 24 27;
+    --primary: 124 58 237; /* violet-600 — brand colour, CTAs */
+    --primary-foreground: 255 255 255;
+    --secondary: 244 244 245;
+    --secondary-foreground: 24 24 27;
+    --muted: 244 244 245;
+    --muted-foreground: 113 113 122;
+    --accent: 244 244 245;
+    --accent-foreground: 24 24 27;
+    --destructive: 239 68 68;
+    --border: 228 228 231;
+    --input: 228 228 231;
+    --ring: 124 58 237;
+  }
+}
