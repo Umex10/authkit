@@ -150,6 +150,10 @@ The filter is registered **only** inside the Spring Security chain (a disabled
 servlet filter, which would otherwise run it twice). See
 [SECURITY.md](SECURITY.md) for the details.
 
+> Want the *fully detailed* call graph — every hop from controller through
+> service to repository and database, the bean dependency graph and the filter
+> chain order? See **[BACKEND_FLOW.md](BACKEND_FLOW.md)**.
+
 ---
 
 ## 6. Token & cookie model
