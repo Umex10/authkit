@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -86,6 +87,25 @@ public class GlobalExceptionHandler {
 				.message("The credentials are incorrect.")
 				.build();
 		return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+	}
+
+	/**
+	 * Maps an {@link AccessDeniedException} (e.g. a failed
+	 * {@code @PreAuthorize("hasRole('ADMIN')")} check raised during the
+	 * controller invocation) to a clean 403 response.
+	 *
+	 * <p>Without this handler the catch-all below would turn role-based denials
+	 * into a misleading 500.
+	 *
+	 * @return a 403 response with a generic permission-denied message
+	 */
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex) {
+		ApiError error = ApiError.builder()
+				.status(HttpStatus.FORBIDDEN.value())
+				.message("You do not have permission to access this resource.")
+				.build();
+		return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
 	}
 
 	/**

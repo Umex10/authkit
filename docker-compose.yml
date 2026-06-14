@@ -1,0 +1,67 @@
+# =============================================================================
+# AuthKit — local development stack
+#
+#   docker compose up            -> Postgres + backend + Swagger UI
+#   docker compose up db         -> just Postgres (run the backend via mvnw)
+#   docker compose up --build    -> rebuild the backend image after code changes
+#
+# Services:
+#   db          PostgreSQL database (port 5432)
+#   backend     the Spring Boot auth service (port 8080, prefix /api/v1)
+#   swagger-ui  a standalone Swagger UI pointed at the live API spec (port 8082)
+#
+# Note: the backend ALSO serves its own Swagger UI at
+#   http://localhost:8080/api/v1/swagger-ui.html  (this is the one with the
+#   Authorize 🔒 button). The swagger-ui container is just a convenience mirror.
+# =============================================================================
+
+services:
+  db:
+    image: postgres:17.7
+    container_name: authkit-db
+    environment:
+      POSTGRES_USER: authkit
+      POSTGRES_PASSWORD: authkit
+      POSTGRES_DB: authkit
+    ports:
+      - "5432:5432"
+    volumes:
+      - authkit_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authkit -d authkit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./apps/backend
+    container_name: authkit-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Inside the compose network the database host is the service name "db".
+      DB_URL: jdbc:postgresql://db:5432/authkit
+      DB_USER: authkit
+      DB_PASSWORD: authkit
+      # Override these in any real deployment.
+      JWT_SECRET: vyHwvufyR5011fbuZ0VqmvuMCGPHwF5hfpzpm5ACNp9MfakocpIaKI8IwcWiI3r5
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "8080:8080"
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: authkit-swagger
+    depends_on:
+      - backend
+    environment:
+      # The browser fetches the spec from the backend, so this is a localhost URL.
+      URL: http://localhost:8080/api/v1/v3/api-docs
+    ports:
+      - "8082:8080"
+    restart: unless-stopped
+
+volumes:
+  authkit_db_data:

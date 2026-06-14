@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -61,6 +62,26 @@ public class SecurityConfig {
 	@Bean
 	public JwtAuthFilter jwtAuthenticationFilter(JwtService jwtService) {
 		return new JwtAuthFilter(jwtService);
+	}
+
+	/**
+	 * Stops Spring Boot from auto-registering {@link JwtAuthFilter} as a global
+	 * servlet filter.
+	 *
+	 * <p>Because the filter is also a {@code @Bean}, Boot would otherwise wire it
+	 * into the raw servlet filter chain <i>in addition</i> to the Spring Security
+	 * chain, making it run twice. On the duplicate run the security chain's
+	 * {@code SecurityContextHolderFilter} resets the context and the request ends
+	 * up anonymous. Disabling the auto-registration guarantees the filter runs
+	 * exactly once — inside the security chain, where we placed it.
+	 *
+	 * @return a disabled filter registration for the JWT filter
+	 */
+	@Bean
+	public FilterRegistrationBean<JwtAuthFilter> jwtAuthFilterRegistration(JwtAuthFilter filter) {
+		FilterRegistrationBean<JwtAuthFilter> registration = new FilterRegistrationBean<>(filter);
+		registration.setEnabled(false);
+		return registration;
 	}
 
 	/**
