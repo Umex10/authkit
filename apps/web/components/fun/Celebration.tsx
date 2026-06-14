@@ -1,0 +1,83 @@
+"use client";
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * FUN GAG — a celebratory confetti burst + a rotating silly subtitle.
+ *
+ * This whole folder (components/fun/) is the "just for fun" layer. To remove
+ * the gag completely:
+ *   1. delete this file (and the components/fun/ folder),
+ *   2. remove the <Celebration /> usage in app/(shell)/dashboard/page.tsx,
+ *   3. (optional) delete the "FUN GAG" block in app/globals.css.
+ * Nothing else in the app depends on it.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+import { useEffect, useState } from "react";
+
+const CONFETTI_COLORS = [
+  "#7c3aed",
+  "#8b5cf6",
+  "#a78bfa",
+  "#f59e0b",
+  "#22c55e",
+  "#ec4899",
+];
+
+/** A few interchangeable, deliberately goofy congratulation lines. */
+const SUBTITLES = [
+  "Du hast es geschafft! 🎉",
+  "Auth funktioniert. Du bist offiziell ein:e Magier:in. 🪄",
+  "Token gültig, Vibes unbezahlbar. ✨",
+  "Eingeloggt wie ein Profi. 😎",
+  "Das war's — Auth ist erledigt, geh Kaffee holen. ☕",
+];
+
+/** Deterministic pseudo-random so confetti looks varied without Math.random in render. */
+function pseudoRandom(seed: number) {
+  const x = Math.sin(seed * 99.13) * 10000;
+  return x - Math.floor(x);
+}
+
+export function Celebration() {
+  // Render confetti only after mount to avoid any SSR/CSR mismatch.
+  const [mounted, setMounted] = useState(false);
+  const [subtitle, setSubtitle] = useState(SUBTITLES[0]);
+
+  useEffect(() => {
+    setMounted(true);
+    // Pick a random goofy line on the client.
+    setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
+  }, []);
+
+  return (
+    <div className="ak-pop-in flex flex-col items-center gap-3 text-center">
+      <div className="text-6xl" aria-hidden>
+        🎉
+      </div>
+      <p className="text-base font-medium text-muted-foreground">{subtitle}</p>
+
+      {/* Confetti rain (fixed, pointer-events-none so it never blocks clicks) */}
+      {mounted && (
+        <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden>
+          {Array.from({ length: 80 }).map((_, i) => {
+            const left = pseudoRandom(i + 1) * 100;
+            const delay = pseudoRandom(i + 2) * 0.8;
+            const duration = 2.6 + pseudoRandom(i + 3) * 1.8;
+            const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+            return (
+              <span
+                key={i}
+                className="ak-confetti-piece"
+                style={{
+                  left: `${left}vw`,
+                  background: color,
+                  animationDelay: `${delay}s`,
+                  animationDuration: `${duration}s`,
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
