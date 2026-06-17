@@ -6,14 +6,12 @@
     "orientation": "portrait",
     "scheme": "authkit",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.authkit.mobile"
     },
     "android": {
-      "package": "com.authkit.mobile",
-      "edgeToEdgeEnabled": true
+      "package": "com.authkit.mobile"
     },
     "web": {
       "bundler": "metro",
