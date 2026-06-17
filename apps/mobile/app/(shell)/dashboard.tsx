@@ -39,7 +39,7 @@ export default function DashboardScreen() {
           You made it{user?.name ? `, ${user.name}` : ""}! 🚀
         </Text>
         <Text className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
-          You're logged in. That means sign-up/sign-in, the stored refresh token,
+          You&apos;re logged in. That means sign-up/sign-in, the stored refresh token,
           the access token and the protected route GET /me all worked.
         </Text>
       </View>
@@ -60,10 +60,10 @@ export default function DashboardScreen() {
       )}
 
       <View className="w-full max-w-md rounded-xl border border-dashed border-border p-5">
-        <Text className="font-semibold text-foreground">What's next?</Text>
+        <Text className="font-semibold text-foreground">What&apos;s next?</Text>
         <View className="mt-2 gap-1.5">
           <Bullet>
-            Build your features under app/(shell)/ — they're protected
+            Build your features under app/(shell)/ — they&apos;re protected
             automatically.
           </Bullet>
           <Bullet>Add new API calls as RTK Query endpoints next to me.ts.</Bullet>

@@ -25,10 +25,16 @@ export function Celebration() {
   const [mounted, setMounted] = useState(false);
   const [subtitle, setSubtitle] = useState(SUBTITLES[0]);
 
+  // Deliberately flip to client-only state *after* mount: ConfettiCannon must not
+  // run during the web SSR pass, and the subtitle is randomised on the client so
+  // the server and client markup match (no hydration mismatch). This is the
+  // canonical did-mount pattern, hence the scoped set-state-in-effect exception.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setMounted(true);
     setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <View className="items-center gap-3">
