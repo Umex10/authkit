@@ -26,8 +26,43 @@ npx expo start
 Then press **i** (iOS simulator), **a** (Android emulator), or scan the QR code
 with the **Expo Go** app on your phone.
 
-> First run after a fresh clone: if the pinned versions ever drift from your
-> installed Expo CLI, run `npx expo install --fix` once to align everything.
+> The project tracks the **latest Expo SDK** so it runs in the Expo Go build
+> that's currently in the App/Play Store. If your local Expo CLI ever drifts from
+> the pinned versions, run `npx expo install --fix` once to realign.
+
+### 📱 Running on a physical device? Do this first
+
+This is the #1 first-run gotcha. On a real phone (and on the Android emulator),
+**`localhost` points at the device itself, not your computer**, so the app can't
+reach the backend — you'll see a network error that looks like "backend not
+running" even though Docker is perfectly fine.
+
+Point the app at your computer instead, then restart Expo:
+
+```bash
+cp .env.example .env
+# then set EXPO_PUBLIC_BACKEND_URL in .env:
+#   • Physical device  → http://<your-computer-LAN-IP>:8080   (e.g. http://192.168.1.20:8080)
+#   • Android emulator → http://10.0.2.2:8080
+#   • iOS simulator    → http://localhost:8080  (the default — nothing to change)
+```
+
+Find your LAN IP with `ip addr` (Linux) / `ifconfig` (macOS) / `ipconfig`
+(Windows). The full table is also in [`.env.example`](.env.example).
+
+### ✅ Verify the backend is reachable
+
+```bash
+# Backend is alive on your computer (a 404 on "/" is fine — it means the server answered):
+curl -i http://localhost:8080
+
+# Reachable from your phone: open this in the phone's browser (same Wi-Fi):
+#   http://<your-computer-LAN-IP>:8080
+```
+
+If the phone can't reach it: allow the port through your firewall
+(`sudo ufw allow 8080` on Linux) and make sure Docker maps it on all interfaces
+(`8080:8080`, i.e. `0.0.0.0`, **not** `127.0.0.1:8080:8080`).
 
 ---
 
@@ -111,6 +146,6 @@ apps/mobile/
 
 ## 🛠️ Tech stack
 
-Expo · Expo Router · React Native 0.76 · NativeWind v4 · Redux Toolkit Query ·
-react-hook-form + Zod · sonner-native (toasts) · expo-secure-store ·
-react-native-confetti-cannon (the optional fun gag).
+Expo SDK 56 · Expo Router · React Native 0.85 · React 19 · NativeWind v4 ·
+Redux Toolkit Query · react-hook-form + Zod · sonner-native (toasts) ·
+expo-secure-store · react-native-confetti-cannon (the optional fun gag).

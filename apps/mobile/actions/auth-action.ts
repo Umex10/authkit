@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { API_BASE_URL } from "@/lib/config";
+import { API_BASE_URL, networkErrorMessage } from "@/lib/config";
 import type { SignInFormValues } from "@/app/sign-in";
 import type { SignUpFormValues } from "@/app/sign-up";
 
@@ -79,7 +79,7 @@ export const signUpAction = async (signUpData: SignUpFormValues) => {
   } catch {
     return {
       success: false as const,
-      error: { status: 500, message: "Network error — is the backend running?" },
+      error: { status: 500, message: networkErrorMessage() },
     };
   }
 };
@@ -103,7 +103,7 @@ export const signInAction = async (signInData: SignInFormValues) => {
   } catch {
     return {
       success: false as const,
-      error: { status: 500, message: "Network error — is the backend running?" },
+      error: { status: 500, message: networkErrorMessage() },
     };
   }
 };
@@ -137,7 +137,7 @@ export const getAccessTkAction = async () => {
   } catch {
     return {
       success: false as const,
-      error: { status: 500, message: "Network error — is the backend running?" },
+      error: { status: 500, message: networkErrorMessage() },
     };
   }
 };

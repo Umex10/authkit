@@ -61,7 +61,13 @@ npx expo start       # → press i / a, or scan the QR with Expo Go
 
 Open the web app at **http://localhost:3000** (or launch the mobile app), register — and you land on a dashboard that says *"You made it!"* 🎉
 
-> Mobile note: on an emulator/phone, `localhost` is the device, not your computer. See [apps/mobile/README.md](apps/mobile/README.md) for the per-platform backend URL.
+> ⚠️ **Mobile on a physical device or Android emulator:** `localhost` means the
+> *device itself*, not your computer — so the app can't reach the backend and you
+> get a "backend not running" error even when Docker is fine. Set
+> `EXPO_PUBLIC_BACKEND_URL` to your computer's LAN IP first (physical device →
+> `http://<LAN-IP>:8080`, Android emulator → `http://10.0.2.2:8080`; the iOS
+> simulator works as-is). Step-by-step + verification:
+> [apps/mobile/README.md](apps/mobile/README.md#-running-on-a-physical-device-do-this-first).
 
 > No configuration needed: every value has a sensible default. See [docs/RUNNING.md](docs/RUNNING.md) for all the variations (full Docker, manual dev, individual services).
 
