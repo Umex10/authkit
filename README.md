@@ -69,9 +69,10 @@ Open the web app at **http://localhost:3000** (or launch the mobile app), regist
 > simulator works as-is). Step-by-step + verification:
 > [apps/mobile/README.md](apps/mobile/README.md#-running-on-a-physical-device-do-this-first).
 >
-> **Physical device, first time ever?** You'll need the project's own EAS dev
-> client installed once (`eas build --platform android --profile
-> development`) — Expo Go won't work here. See
+> **Physical device, first time ever?** You'll need the project's own dev
+> client installed once — Expo Go won't work here. Fastest way: grab the
+> prebuilt APK from this repo's [Releases](../../releases), no EAS account or
+> cloud build needed. See
 > [apps/mobile/README.md](apps/mobile/README.md#-install-the-dev-client-on-your-phone-one-time-only).
 
 > No configuration needed: every value has a sensible default. See [docs/RUNNING.md](docs/RUNNING.md) for all the variations (full Docker, manual dev, individual services).

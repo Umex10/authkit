@@ -72,12 +72,12 @@ npm install
 npx expo start                  # press i (iOS), a (Android), or scan the QR
 ```
 
-> **First time on a physical device?** This project uses an EAS **development
+> **First time on a physical device?** This project uses a **development
 > build** instead of Expo Go (Expo Go only supports one SDK version at a time,
-> so it drifts out of sync). One-time per device:
-> `npm install -g eas-cli && eas login && eas build --platform android --profile development`
-> — installs a custom "AuthKit" app you then point `npx expo start` at every
-> time after. Full details, including iOS, in
+> so it drifts out of sync). Fastest one-time setup: download the prebuilt APK
+> from this repo's [Releases](../../releases) and install it — no EAS account,
+> no cloud build, no waiting. You only need `eas build` yourself if you've
+> changed a native dependency. Full details, including iOS, in
 > [apps/mobile/README.md](../apps/mobile/README.md).
 
 > **`localhost` is the device, not your machine.** Set `EXPO_PUBLIC_BACKEND_URL`

@@ -36,7 +36,25 @@ a small custom "AuthKit" app built once from this exact project, so it never
 goes out of sync — you only rebuild it if native dependencies change (rare),
 never for routine SDK/version bumps.
 
-**One-time setup per device:**
+There are three ways to get it onto your device — pick whichever fits:
+
+**Option 1 — download the prebuilt APK (fastest, Android only)**
+
+Grab the latest APK from this repo's **[Releases](../../../releases)** page
+and install it directly — no Expo account, no build, no waiting:
+
+```bash
+adb install authkit-dev-client.apk
+# or just copy the file to your phone and open it
+```
+
+Use this by default. The catch: it's only as fresh as the last time someone
+published a release, so if you've added/changed a native dependency on your
+own branch, it won't reflect that — build it yourself instead (Option 2 or 3).
+
+**Option 2 — build it yourself in Expo's cloud (EAS Build)**
+
+No local Android/iOS toolchain needed; Expo's servers do the compiling.
 
 ```bash
 npm install -g eas-cli
@@ -44,11 +62,31 @@ eas login          # free Expo account
 eas build --platform android --profile development
 ```
 
-This builds in Expo's cloud (~10–15 min) and prints a QR code / link at the
-end — scan it to install the "AuthKit" app on your phone, exactly once. (For
-iOS, use `--platform ios`; installing on a physical iPhone additionally needs
-the device registered via `eas device:create` because of Apple's signing
-requirements — see [Expo's iOS device guide](https://docs.expo.dev/develop/development-builds/create-a-build/#install-and-open-the-app-on-a-device) if you need iOS.)
+Takes ~10–15 min and prints a QR code / link at the end — scan it to install
+the "AuthKit" app on your phone. (For iOS, use `--platform ios`; installing
+on a physical iPhone additionally needs the device registered via
+`eas device:create` because of Apple's signing requirements — see
+[Expo's iOS device guide](https://docs.expo.dev/develop/development-builds/create-a-build/#install-and-open-the-app-on-a-device).)
+
+**Option 3 — build it locally (`eas build --local`)**
+
+Same output as Option 2, but compiles on your own machine instead of Expo's
+cloud — no upload/queue wait, but you need the native Android toolchain
+installed locally (Android SDK + a JDK; Gradle comes via the project). iOS
+additionally requires a Mac with Xcode, so this only really applies to
+Android on Linux/Windows.
+
+```bash
+npm install -g eas-cli
+cd apps/mobile
+eas build --platform android --profile development --local
+```
+
+**When do you actually need Option 2 or 3?** Only if you've added or upgraded
+a *native* module (anything with native code, e.g. a new `expo-*` or
+`react-native-*` package) — that's baked into the compiled app and can't be
+live-reloaded. Pure JS/TS/UI changes never require a new build, on any
+option: just `npx expo start` and reload.
 
 **Every day after that:**
 
@@ -60,11 +98,6 @@ Open the **AuthKit** app on your phone (not Expo Go) — it connects to the
 dev server over your LAN, same live-reload experience as Expo Go, but
 without the version-lock problem. WiFi debugging / same-Wi-Fi as your
 computer is all you need; no adb, no USB required for JS-only changes.
-
-> You only need a new build (`eas build …`) when adding/upgrading a *native*
-> module (anything with native code, e.g. a new `expo-*` or `react-native-*`
-> package). Pure JS/TS/UI changes never require rebuilding — just
-> `npx expo start` and reload.
 
 ### 📱 Running on a physical device? Do this first
 
