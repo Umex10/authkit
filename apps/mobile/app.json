@@ -4,6 +4,7 @@
     "slug": "authkit-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
     "scheme": "authkit",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -11,20 +12,41 @@
       "bundleIdentifier": "com.authkit.mobile"
     },
     "android": {
-      "package": "com.authkit.mobile"
+      "package": "com.authkit.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#7C3AED"
+      }
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "67c54884-7ac3-47f7-a9fb-455e4ae82182"
+      }
+    },
+    "owner": "umex10"
   }
 }

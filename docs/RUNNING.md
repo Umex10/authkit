@@ -9,7 +9,7 @@ Three ways to run it, from "just show me" to "I want to develop on it".
 - **Docker** (for the database, and optionally the backend)
 - **Java 21** + the bundled Maven wrapper (`./mvnw`) — only if you run the backend outside Docker
 - **Node.js 20+** — for either frontend
-- **For the mobile app only:** the **Expo Go** app on a phone, or an iOS simulator / Android emulator (no extra global install — `npx expo` handles the tooling)
+- **For the mobile app only:** an iOS simulator / Android emulator, or a physical phone with the project's own **dev client** installed (see below) — not Expo Go, since this project pins exact native module versions that Expo Go on the App/Play Store won't match
 
 No global Maven and no global secrets manager needed; the Maven wrapper is
 included and every config value has a built-in default.
@@ -71,6 +71,14 @@ cd apps/mobile
 npm install
 npx expo start                  # press i (iOS), a (Android), or scan the QR
 ```
+
+> **First time on a physical device?** This project uses an EAS **development
+> build** instead of Expo Go (Expo Go only supports one SDK version at a time,
+> so it drifts out of sync). One-time per device:
+> `npm install -g eas-cli && eas login && eas build --platform android --profile development`
+> — installs a custom "AuthKit" app you then point `npx expo start` at every
+> time after. Full details, including iOS, in
+> [apps/mobile/README.md](../apps/mobile/README.md).
 
 > **`localhost` is the device, not your machine.** Set `EXPO_PUBLIC_BACKEND_URL`
 > for anything other than the iOS simulator:

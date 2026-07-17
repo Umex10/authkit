@@ -23,12 +23,48 @@ npm install
 npx expo start
 ```
 
-Then press **i** (iOS simulator), **a** (Android emulator), or scan the QR code
-with the **Expo Go** app on your phone.
+Scan the QR code with the **AuthKit dev client** (not Expo Go — see below),
+or press **i** (iOS simulator) / **a** (Android emulator).
 
-> The project tracks the **latest Expo SDK** so it runs in the Expo Go build
-> that's currently in the App/Play Store. If your local Expo CLI ever drifts from
-> the pinned versions, run `npx expo install --fix` once to realign.
+### 📲 Install the dev client on your phone (one time only)
+
+This project uses a **development build** instead of Expo Go. Expo Go is a
+generic app that only supports one SDK version at a time, so every SDK
+release (or Play Store rollout delay) breaks it — that's the classic
+`Project is incompatible with this version of Expo Go` error. A dev build is
+a small custom "AuthKit" app built once from this exact project, so it never
+goes out of sync — you only rebuild it if native dependencies change (rare),
+never for routine SDK/version bumps.
+
+**One-time setup per device:**
+
+```bash
+npm install -g eas-cli
+eas login          # free Expo account
+eas build --platform android --profile development
+```
+
+This builds in Expo's cloud (~10–15 min) and prints a QR code / link at the
+end — scan it to install the "AuthKit" app on your phone, exactly once. (For
+iOS, use `--platform ios`; installing on a physical iPhone additionally needs
+the device registered via `eas device:create` because of Apple's signing
+requirements — see [Expo's iOS device guide](https://docs.expo.dev/develop/development-builds/create-a-build/#install-and-open-the-app-on-a-device) if you need iOS.)
+
+**Every day after that:**
+
+```bash
+npx expo start
+```
+
+Open the **AuthKit** app on your phone (not Expo Go) — it connects to the
+dev server over your LAN, same live-reload experience as Expo Go, but
+without the version-lock problem. WiFi debugging / same-Wi-Fi as your
+computer is all you need; no adb, no USB required for JS-only changes.
+
+> You only need a new build (`eas build …`) when adding/upgrading a *native*
+> module (anything with native code, e.g. a new `expo-*` or `react-native-*`
+> package). Pure JS/TS/UI changes never require rebuilding — just
+> `npx expo start` and reload.
 
 ### 📱 Running on a physical device? Do this first
 
@@ -149,3 +185,8 @@ apps/mobile/
 Expo SDK 56 · Expo Router · React Native 0.85 · React 19 · NativeWind v4 ·
 Redux Toolkit Query · react-hook-form + Zod · sonner-native (toasts) ·
 expo-secure-store · react-native-confetti-cannon (the optional fun gag).
+
+All `expo-*` and `react-native-*` packages are pinned to **exact** versions
+(no `^`/`~`) so `npm install` always reproduces the same native module set —
+see [Install the dev client](#-install-the-dev-client-on-your-phone-one-time-only)
+if you still hit a version error.

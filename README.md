@@ -56,7 +56,7 @@ npm run dev          # → http://localhost:3000
 # 2b. …OR start the MOBILE frontend (React Native / Expo)
 cd apps/mobile
 npm install
-npx expo start       # → press i / a, or scan the QR with Expo Go
+npx expo start       # → press i / a, or scan the QR with the AuthKit dev client (not Expo Go)
 ```
 
 Open the web app at **http://localhost:3000** (or launch the mobile app), register — and you land on a dashboard that says *"You made it!"* 🎉
@@ -68,6 +68,11 @@ Open the web app at **http://localhost:3000** (or launch the mobile app), regist
 > `http://<LAN-IP>:8080`, Android emulator → `http://10.0.2.2:8080`; the iOS
 > simulator works as-is). Step-by-step + verification:
 > [apps/mobile/README.md](apps/mobile/README.md#-running-on-a-physical-device-do-this-first).
+>
+> **Physical device, first time ever?** You'll need the project's own EAS dev
+> client installed once (`eas build --platform android --profile
+> development`) — Expo Go won't work here. See
+> [apps/mobile/README.md](apps/mobile/README.md#-install-the-dev-client-on-your-phone-one-time-only).
 
 > No configuration needed: every value has a sensible default. See [docs/RUNNING.md](docs/RUNNING.md) for all the variations (full Docker, manual dev, individual services).
 
