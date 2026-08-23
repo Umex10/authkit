@@ -38,6 +38,16 @@ It was extracted, almost 1:1, from a production app — so it is not a toy. Use 
 </tr>
 </table>
 
+**On mobile** — the same web app, responsive:
+
+<table>
+<tr>
+<td width="33%"><img src="docs/screenshots/mobile/authkit-landing.jpg" width="100%" alt="AuthKit landing on mobile"/></td>
+<td width="33%"><img src="docs/screenshots/mobile/authkit-signup.jpg" width="100%" alt="AuthKit sign-up on mobile"/></td>
+<td width="33%"><img src="docs/screenshots/mobile/authkit-dashboard.jpg" width="100%" alt="AuthKit dashboard on mobile"/></td>
+</tr>
+</table>
+
 ---
 
 ## 🧭 Which frontend should I use?
