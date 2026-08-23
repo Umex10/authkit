@@ -17,6 +17,29 @@ It was extracted, almost 1:1, from a production app — so it is not a toy. Use 
 
 ---
 
+## 📸 A look at it
+
+<table>
+<tr>
+<td width="50%" valign="top">
+  <img src="docs/screenshots/authkit-landing.png" width="100%" alt="AuthKit landing page"/>
+  <sub><b>Landing</b> — what you get out of the box.</sub>
+</td>
+<td width="50%" valign="top">
+  <img src="docs/screenshots/authkit-signup.png" width="100%" alt="AuthKit sign-up screen"/>
+  <sub><b>Sign-up</b> — validation, roles, terms; posts to <code>/auth/sign-up</code>.</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top">
+  <img src="docs/screenshots/authkit-dashboard.jpg" width="100%" alt="AuthKit dashboard after sign-up"/>
+  <sub><b>Dashboard</b> — you land here logged in; the account card is live data from the protected <code>GET /me</code> route.</sub>
+</td>
+</tr>
+</table>
+
+---
+
 ## 🧭 Which frontend should I use?
 
 The heart of AuthKit is the **backend in `apps/backend`** — a self-contained
