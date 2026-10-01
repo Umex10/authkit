@@ -5,8 +5,6 @@ import java.util.List;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -16,12 +14,14 @@ import com.authkit.backend.common.exception.ApiError;
 import com.authkit.backend.common.exception.OwnException;
 import com.authkit.backend.common.repositories.UserRepository;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 /**
  * Service layer responsible for sign-up and credential-authentication logic.
  *
- * <p>Holds the business rules around creating a new {@link User} (unique email
+ * <p>
+ * Holds the business rules around creating a new {@link User} (unique email
  * and phone, password hashing) and delegates credential verification to the
  * Spring Security {@link AuthenticationManager}.
  *
@@ -35,12 +35,12 @@ public class AuthService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder encoder;
 	private final AuthenticationManager authenticationManager;
-	private final UserDetailsService userDetailsService;
 
 	/**
 	 * Registers a new user.
 	 *
-	 * <p>Verifies that the requested email and phone number are not already in
+	 * <p>
+	 * Verifies that the requested email and phone number are not already in
 	 * use, hashes the plain-text password with the configured
 	 * {@link PasswordEncoder} and persists the resulting {@link User}.
 	 *
@@ -89,18 +89,21 @@ public class AuthService {
 	/**
 	 * Verifies a user's credentials against the authentication manager.
 	 *
-	 * <p>Runs the standard Spring Security username/password authentication flow
-	 * and, on success, loads the matching {@link UserDetails} from the
-	 * {@link UserDetailsService}.
+	 * <p>
+	 * Runs the standard Spring Security username/password authentication flow
+	 * and, on success, loads the matching {@link User} so its id, email and role
+	 * can be put into the issued tokens.
 	 *
-	 * @return the loaded user details, ready to be used as the principal
+	 * @return the authenticated user
 	 * @throws org.springframework.security.core.AuthenticationException when the
-	 *         credentials are invalid
+	 *                                                                   credentials
+	 *                                                                   are invalid
 	 */
-	public UserDetails authenticate(String email, String password) {
+	public User authenticate(String email, String password) {
 
 		authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, password));
 
-		return userDetailsService.loadUserByUsername(email);
+		return userRepository.findByEmail(email).orElseThrow(
+				() -> new EntityNotFoundException("The user with the email: " + email + " was not found."));
 	}
 }

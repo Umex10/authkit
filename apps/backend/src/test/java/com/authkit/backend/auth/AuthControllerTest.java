@@ -17,7 +17,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -108,9 +107,9 @@ public class AuthControllerTest {
 	void shouldSignIn() throws Exception {
 		SignInAccountRequestDto dto = TestDataFactory.createSignInDto();
 		String jsonRequest = objectMapper.writeValueAsString(dto);
-		UserDetails userDetailsMock = mock(UserDetails.class);
-		when(authService.authenticate(any(), any())).thenReturn(userDetailsMock);
-		when(userDetailsMock.getUsername()).thenReturn("username");
+		User user = mock(User.class);
+		when(authService.authenticate(any(), any())).thenReturn(user);
+		when(user.getName()).thenReturn("username");
 		when(jwtService.createAccessTk(any())).thenReturn("mock-access-token");
 		when(jwtService.createRefreshTk(any())).thenReturn("mock-refresh-token");
 
@@ -141,10 +140,8 @@ public class AuthControllerTest {
 
 	@Test
 	void shouldCreateAccessTk() throws Exception {
-		UserDetails userDetailsMock = mock(UserDetails.class);
 		when(jwtService.extractRefreshTk(any())).thenReturn("Token");
-		when(jwtService.validateTk(any())).thenReturn(userDetailsMock);
-		when(userDetailsMock.getUsername()).thenReturn("username");
+		when(jwtService.validateRefreshTk(any())).thenReturn(TestDataFactory.createDefaultUser());
 		when(jwtService.createAccessTk(any())).thenReturn("mock-access-token");
 
 		mockMvc.perform(get("/auth/access-tk"))

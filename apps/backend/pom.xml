@@ -93,6 +93,14 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
+		<!-- OAuth2 Resource Server: verifies bearer JWTs with the public key (no custom filter
+		needed). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+		</dependency>
+
+
 		<!-- Test slices (web / jpa / validation) — Spring Boot 4 split starters. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

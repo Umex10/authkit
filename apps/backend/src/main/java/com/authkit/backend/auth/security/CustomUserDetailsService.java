@@ -1,5 +1,7 @@
 package com.authkit.backend.auth.security;
 
+import java.util.UUID;
+
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -36,7 +38,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new UsernameNotFoundException(
-						"User with the username: " + email + " doesn't exist."));
+						"User with the email: " + email + " doesn't exist."));
 		return new CustomUserDetails(user);
 	}
 

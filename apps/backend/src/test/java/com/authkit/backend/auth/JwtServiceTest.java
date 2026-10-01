@@ -4,97 +4,80 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.test.util.ReflectionTestUtils;
 
+import com.authkit.backend.common.entities.User;
+import com.authkit.backend.common.repositories.UserRepository;
+import com.authkit.backend.utils.TestDataFactory;
+
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.Cookie;
 
 /**
  * Unit tests for {@link JwtService}.
  *
- * <p>Pure Mockito tests — no Spring context. The HS256 secret is injected via
- * reflection because there is no property source loaded here.
+ * <p>Pure Mockito tests — no Spring context. A fresh RSA key pair is generated
+ * for the test run, so no key file is needed.
  */
 @ExtendWith(MockitoExtension.class)
 public class JwtServiceTest {
 
 	@Mock
-	private UserDetailsService userDetailsService;
+	private UserRepository userRepository;
 
-	@InjectMocks
 	private JwtService jwtService;
 
+	private final User user = TestDataFactory.createDefaultUser();
+
 	@BeforeEach
-	void setUp() {
-		// >= 256-bit secret required by HS256.
-		ReflectionTestUtils.setField(jwtService, "secretKey",
-				"6JdV8gkU9MfeAtDHc0qnRdQtdWhZ2VOyr+nMV6N9jDKuVnHpHLO98XPjmvh7MAlPiLNsxb+deTP1f8arBuwooA==");
+	void setUp() throws Exception {
+		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+		generator.initialize(2048);
+		KeyPair pair = generator.generateKeyPair();
+		jwtService = new JwtService((RSAPrivateKey) pair.getPrivate(), (RSAPublicKey) pair.getPublic(), userRepository);
 	}
 
 	@Test
 	void shouldCreateAccessTk() {
-		String accessTk = jwtService.createAccessTk("john@mail.com");
-		assertNotNull(accessTk);
+		assertNotNull(jwtService.createAccessTk(user));
 	}
 
 	@Test
 	void shouldCreateRefreshTk() {
-		String refreshTk = jwtService.createRefreshTk("john@mail.com");
-		assertNotNull(refreshTk);
+		assertNotNull(jwtService.createRefreshTk(user));
 	}
 
 	@Test
-	void shouldValidateTk() {
-		String email = "john@mail.com";
-		String tk = jwtService.createRefreshTk(email);
+	void shouldValidateRefreshTk() {
+		String tk = jwtService.createRefreshTk(user);
+		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 
-		UserDetails userDetailsMock = mock(UserDetails.class);
-		when(userDetailsMock.getUsername()).thenReturn(email);
-		when(userDetailsService.loadUserByUsername(email)).thenReturn(userDetailsMock);
+		User result = jwtService.validateRefreshTk(tk);
 
-		UserDetails userDetails = jwtService.validateTk(tk);
-
-		assertNotNull(userDetails);
-		assertEquals(email, userDetails.getUsername());
-		verify(userDetailsService).loadUserByUsername(email);
+		assertEquals(user, result);
+		verify(userRepository).findById(user.getId());
 	}
 
 	@Test
 	void shouldThrowExceptionWhenUserNotFound() {
-		String email = "unknown@mail.com";
-		String tk = jwtService.createAccessTk(email);
+		String tk = jwtService.createRefreshTk(user);
+		when(userRepository.findById(user.getId())).thenReturn(Optional.empty());
 
-		when(userDetailsService.loadUserByUsername(email))
-				.thenThrow(new UsernameNotFoundException("User not found"));
-
-		assertThrows(UsernameNotFoundException.class, () -> jwtService.validateTk(tk));
-	}
-
-	@Test
-	void shouldExtractAccessTk() {
-		MockHttpServletRequest request = new MockHttpServletRequest();
-		request.addHeader("Authorization", "Bearer New-Access-Tk");
-
-		assertNotNull(jwtService.extractAccessTk(request));
-	}
-
-	@Test
-	void shouldNotExtractAccessTk() {
-		MockHttpServletRequest request = new MockHttpServletRequest();
-		assertNull(jwtService.extractAccessTk(request));
+		assertThrows(EntityNotFoundException.class, () -> jwtService.validateRefreshTk(tk));
 	}
 
 	@Test

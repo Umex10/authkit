@@ -1,8 +1,9 @@
 package com.authkit.backend.auth;
 
+import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -66,7 +67,7 @@ public class AuthController {
 
 		User user = authService.signUp(signUpAccountRequestDto);
 
-		AuthResponseDto authResponseDto = createAuthResponseDto(user.getEmail(), response);
+		AuthResponseDto authResponseDto = createAuthResponseDto(user, response);
 
 		return new ResponseEntity<>(authResponseDto, HttpStatus.CREATED);
 	}
@@ -91,21 +92,22 @@ public class AuthController {
 			HttpServletRequest request,
 			HttpServletResponse response) {
 
-		UserDetails userDetails = authService.authenticate(
+		User user = authService.authenticate(
 				signInAccountRequestDto.getEmail(),
 				signInAccountRequestDto.getPassword());
 
-		AuthResponseDto authResponseDto = createAuthResponseDto(userDetails.getUsername(), response);
+		AuthResponseDto authResponseDto = createAuthResponseDto(user, response);
 
 		return ResponseEntity.ok(authResponseDto);
-	}
+	} 
 
 	/**
 	 * Issues a fresh access token from a valid refresh-token cookie.
 	 *
 	 * <p>Reads the {@code refresh_tk} cookie from the request, validates it via
-	 * {@link JwtService#validateTk(String)} and returns a new access token for
-	 * the same subject. The refresh cookie itself is not rotated.
+	 * {@link JwtService#validateRefreshTk(String)} (which also loads the user) and
+	 * returns a new access token for that user. The refresh cookie itself is not
+	 * rotated.
 	 *
 	 * @return the authentication response containing the new access token, or
 	 *         HTTP 401 (Unauthorized) when the refresh cookie is missing
@@ -124,9 +126,9 @@ public class AuthController {
 					.body("The refresh token is missing");
 		}
 
-		UserDetails userDetails = jwtService.validateTk(refreshTk);
+		User user = jwtService.validateRefreshTk(refreshTk);
 
-		AuthResponseDto authResponseDto = createAuthResponseDto(userDetails.getUsername(), null);
+		AuthResponseDto authResponseDto = createAuthResponseDto(user, null);
 
 		return ResponseEntity.ok(authResponseDto);
 	}
@@ -141,12 +143,12 @@ public class AuthController {
 	 *
 	 * @return the populated {@link AuthResponseDto}
 	 */
-	private AuthResponseDto createAuthResponseDto(String email, HttpServletResponse response) {
+	private AuthResponseDto createAuthResponseDto(User user, HttpServletResponse response) {
 
-		String accessTk = jwtService.createAccessTk(email);
+		String accessTk = jwtService.createAccessTk(user);
 
 		if (response != null) {
-			String refreshTk = jwtService.createRefreshTk(email);
+			String refreshTk = jwtService.createRefreshTk(user);
 
 			Cookie refreshCookie = new Cookie("refresh_tk", refreshTk);
 			refreshCookie.setHttpOnly(true);   // not readable from JavaScript -> mitigates XSS token theft

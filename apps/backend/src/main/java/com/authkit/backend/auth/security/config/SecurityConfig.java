@@ -1,12 +1,12 @@
 package com.authkit.backend.auth.security.config;
 
+import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -19,27 +19,32 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.authkit.backend.auth.JwtService;
-import com.authkit.backend.auth.security.JwtAuthFilter;
+import com.authkit.backend.auth.dto.TkName;
 
 /**
  * Central Spring Security configuration for the application.
  *
- * <p>Wires the stateless JWT-based authentication setup: CSRF is disabled because
- * the API does not rely on session cookies, the {@link JwtAuthFilter} runs before
- * the standard {@link UsernamePasswordAuthenticationFilter}, and the
+ * <p>
+ * Wires the stateless JWT-based authentication setup: CSRF is disabled because
+ * the API does not rely on session cookies, access tokens are verified by
+ * Spring Security's OAuth2 resource server using only the public key, and the
  * {@code /auth/**} routes are publicly reachable so unauthenticated clients can
  * sign up, sign in and refresh tokens. CORS is opened up for the configured
  * frontend origin(s).
  *
- * @see JwtAuthFilter
- * @see CorsConfig
+ * @see com.authkit.backend.auth.config.KeyConfig
  */
 @Configuration
 @EnableWebSecurity
@@ -55,59 +60,73 @@ public class SecurityConfig {
 	private String frontendUrl;
 
 	/**
-	 * Produces the JWT authentication filter as a managed bean.
+	 * Builds the decoder that verifies every incoming access token.
 	 *
-	 * @return the configured {@link JwtAuthFilter}
+	 * <p>
+	 * Checks the RS256 signature with the public key, the standard claims
+	 * (expiry, not-before) and, additionally, that {@code type_tk} is
+	 * {@code ACCESS}, so a refresh token can never be used as an access token.
+	 *
+	 * @return the decoder used by the resource server
 	 */
 	@Bean
-	public JwtAuthFilter jwtAuthenticationFilter(JwtService jwtService) {
-		return new JwtAuthFilter(jwtService);
+	public JwtDecoder jwtDecoder(RSAPublicKey publicKey) {
+		NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(publicKey).build();
+		decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+				JwtValidators.createDefault(),
+				new JwtClaimValidator<String>("type_tk", TkName.ACCESS.name()::equals)));
+		return decoder;
 	}
 
 	/**
-	 * Stops Spring Boot from auto-registering {@link JwtAuthFilter} as a global
-	 * servlet filter.
+	 * Turns a verified JWT into a Spring Security {@code Authentication}.
 	 *
-	 * <p>Because the filter is also a {@code @Bean}, Boot would otherwise wire it
-	 * into the raw servlet filter chain <i>in addition</i> to the Spring Security
-	 * chain, making it run twice. On the duplicate run the security chain's
-	 * {@code SecurityContextHolderFilter} resets the context and the request ends
-	 * up anonymous. Disabling the auto-registration guarantees the filter runs
-	 * exactly once — inside the security chain, where we placed it.
+	 * <p>
+	 * Reads the authorities from the token's {@code roles} claim (e.g.
+	 * {@code ["ADMIN"]}) and prefixes them with {@code ROLE_}, so that
+	 * {@code @PreAuthorize("hasRole('ADMIN')")} works. Spring's default would read
+	 * the {@code scope} claim instead.
 	 *
-	 * @return a disabled filter registration for the JWT filter
+	 * @return the converter used by the resource server
 	 */
 	@Bean
-	public FilterRegistrationBean<JwtAuthFilter> jwtAuthFilterRegistration(JwtAuthFilter filter) {
-		FilterRegistrationBean<JwtAuthFilter> registration = new FilterRegistrationBean<>(filter);
-		registration.setEnabled(false);
-		return registration;
+	public JwtAuthenticationConverter jwtAuthenticationConverter() {
+		JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
+		authorities.setAuthoritiesClaimName("roles");
+		authorities.setAuthorityPrefix("ROLE_");
+
+		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+		converter.setJwtGrantedAuthoritiesConverter(authorities);
+		return converter;
 	}
 
 	/**
 	 * Assembles the application's primary security filter chain.
 	 *
-	 * <p>Disables CSRF, opts in to CORS using the bean defined below, makes
+	 * <p>
+	 * Disables CSRF, opts in to CORS using the bean defined below, makes
 	 * {@code /auth/**} and the Swagger UI paths public, requires authentication
 	 * for every other route, declares the session policy as stateless and
-	 * inserts the JWT filter ahead of the username/password filter.
+	 * turns on the OAuth2 resource server for bearer JWTs.
 	 *
 	 * @return the built security filter chain
 	 * @throws Exception when {@link HttpSecurity#build()} fails
 	 */
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http,
-			JwtAuthFilter jwtAuthenticationFilter) throws Exception {
+			JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
 		http
-			.cors(Customizer.withDefaults())
-			.csrf(csrf -> csrf.disable()) // safe: the API is stateless and token-based, not cookie-session-based
-			.authorizeHttpRequests(auth -> auth
-				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CORS pre-flight
-				.requestMatchers("/auth/**").permitAll()                // public: sign-up / sign-in / refresh
-				.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll() // public docs
-				.anyRequest().authenticated())                          // everything else needs a valid JWT
-			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+				.cors(Customizer.withDefaults())
+				.csrf(csrf -> csrf.disable()) // safe: the API is stateless and token-based, not cookie-session-based
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CORS pre-flight
+						.requestMatchers("/auth/**").permitAll() // public: sign-up / sign-in / refresh
+						.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll() // public docs
+						.anyRequest().authenticated()) // everything else needs a valid JWT
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.oauth2ResourceServer(oauth2 -> oauth2
+						.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
+
 		return http.build();
 	}
 
@@ -137,7 +156,8 @@ public class SecurityConfig {
 	/**
 	 * Configures Cross-Origin Resource Sharing (CORS) for every route.
 	 *
-	 * <p>Reads {@code FRONTEND_URL} (a comma-separated list of patterns) and
+	 * <p>
+	 * Reads {@code FRONTEND_URL} (a comma-separated list of patterns) and
 	 * registers it via {@code setAllowedOriginPatterns}, which is required when
 	 * {@code allowCredentials} is enabled and supports wildcards such as
 	 * {@code https://*.vercel.app}. The configuration permits the standard REST
@@ -159,11 +179,12 @@ public class SecurityConfig {
 		allowedOrigins.addAll(List.of(
 				"http://localhost:3000", // Next.js web (dev)
 				"http://localhost:3001", // Next.js web (e2e test instance)
-				"http://localhost:8082"  // standalone Swagger UI container
+				"http://localhost:8082" // standalone Swagger UI container
 		));
 
 		CorsConfiguration configuration = new CorsConfiguration();
-		// setAllowedOriginPatterns works with allowCredentials(true) and supports wildcards.
+		// setAllowedOriginPatterns works with allowCredentials(true) and supports
+		// wildcards.
 		configuration.setAllowedOriginPatterns(allowedOrigins);
 		configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(List.of("*"));
