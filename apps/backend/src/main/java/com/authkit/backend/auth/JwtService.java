@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.oauth2.jwt.JwtEncodingException;
 import org.springframework.stereotype.Service;
 
 import com.authkit.backend.auth.dto.TkName;

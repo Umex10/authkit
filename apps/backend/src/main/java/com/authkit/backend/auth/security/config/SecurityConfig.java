@@ -121,6 +121,7 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CORS pre-flight
 						.requestMatchers("/auth/**").permitAll() // public: sign-up / sign-in / refresh
+						.requestMatchers("/.well-known/jwks.json").permitAll() // public: verification key for other services
 						.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll() // public docs
 						.anyRequest().authenticated()) // everything else needs a valid JWT
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
