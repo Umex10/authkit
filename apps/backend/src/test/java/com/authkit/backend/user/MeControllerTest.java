@@ -7,16 +7,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPublicKey;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.authkit.backend.auth.security.config.SecurityConfig;
 import com.authkit.backend.common.entities.User;
@@ -24,16 +29,19 @@ import com.authkit.backend.common.repositories.UserRepository;
 import com.authkit.backend.utils.TestDataFactory;
 
 /**
- * Integration test for the protected {@link MeController} routes, exercised
+ * Web-layer test for the protected {@link MeController} routes, exercised
  * through the real {@link SecurityConfig} filter chain (incl. method security).
  *
- * <p>Demonstrates that the JWT-based authentication, the {@code userId} request
- * attribute and the role-based {@code @PreAuthorize} checks all behave end to
- * end.
+ * <p>
+ * Requests are authenticated with {@code jwt()} from spring-security-test, which
+ * puts an already verified JWT into the security context. This checks the
+ * controller, reading the user id from the token subject and the role-based
+ * {@code @PreAuthorize} rules. Token verification itself (signature, expiry,
+ * {@code type_tk}) is bypassed here and is not covered by this class.
  */
 @WebMvcTest(MeController.class)
 @AutoConfigureMockMvc(addFilters = true)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, MeControllerTest.TestKeyConfig.class })
 public class MeControllerTest {
 
 	@Autowired
@@ -78,9 +86,24 @@ public class MeControllerTest {
 	 * (subject = user id) with the user's {@code ROLE_} authority into the
 	 * security context.
 	 */
-	private static org.springframework.test.web.servlet.request.RequestPostProcessor authenticatedAs(User user) {
+	private static RequestPostProcessor authenticatedAs(User user) {
 		return jwt()
 				.jwt(token -> token.subject(user.getId().toString()))
 				.authorities(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+	}
+
+	/**
+	 * Provides the {@link RSAPublicKey} bean that {@code KeyConfig} supplies in
+	 * the real app; {@code SecurityConfig#jwtDecoder} needs it for the context to
+	 * start. Static, so Spring can create it without a test instance.
+	 */
+	@TestConfiguration
+	static class TestKeyConfig {
+		@Bean
+		RSAPublicKey publicKey() throws Exception {
+			KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+			generator.initialize(2048);
+			return (RSAPublicKey) generator.generateKeyPair().getPublic();
+		}
 	}
 }

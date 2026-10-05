@@ -101,7 +101,7 @@ public class SecurityConfig {
 	}
 
 	/**
-	 * Assembles the application's primary security filter chain.
+	 * Assembles the application's main security filter chain.
 	 *
 	 * <p>
 	 * Disables CSRF, opts in to CORS using the bean defined below, makes
