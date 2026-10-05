@@ -2,7 +2,6 @@ package com.authkit.backend.auth;
 
 import static org.hamcrest.Matchers.hasItems;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -31,7 +30,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Web-layer tests for {@link AuthController}.
  *
- * <p>Drives the three public endpoints through MockMvc with the service and JWT
+ * <p>
+ * Drives the three public endpoints through MockMvc with the service and JWT
  * layers mocked, asserting status codes, the {@code AuthResponseDto} shape and
  * the error envelopes produced by the global exception handler.
  */
@@ -51,13 +51,15 @@ public class AuthControllerTest {
 	@MockitoBean
 	private JwtService jwtService;
 
+	private final User user = TestDataFactory.createDefaultUser();
+
+	/** A successful sign-up returns 201 with an access token and its lifetime. */
 	@Test
 	void shouldSignUpAccount() throws Exception {
-		User userMock = TestDataFactory.createDefaultUser();
 		SignUpAccountRequestDto dto = TestDataFactory.createSignUpDto();
 		String jsonRequest = objectMapper.writeValueAsString(dto);
 
-		when(authService.signUp(dto)).thenReturn(userMock);
+		when(authService.signUp(dto)).thenReturn(user);
 		when(jwtService.createAccessTk(any())).thenReturn("mock-access-token");
 		when(jwtService.createRefreshTk(any())).thenReturn("mock-refresh-token");
 
@@ -71,6 +73,7 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.expiresIn").value(900));
 	}
 
+	/** Taken email and phone come back as 400 with one field error each. */
 	@Test
 	void shouldNotSignUpAccount() throws Exception {
 		SignUpAccountRequestDto dto = TestDataFactory.createSignUpDto();
@@ -89,6 +92,7 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.errors[*].field").value(hasItems("email", "phone")));
 	}
 
+	/** Bean validation rejects blank or malformed fields with 400 in the same error shape. */
 	@Test
 	void shouldRejectInvalidSignUpPayload() throws Exception {
 		// Missing/blank fields must be rejected by bean validation and surfaced
@@ -103,13 +107,12 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.errors").isArray());
 	}
 
+	/** A successful sign-in returns 200 with an access token and its lifetime. */
 	@Test
 	void shouldSignIn() throws Exception {
 		SignInAccountRequestDto dto = TestDataFactory.createSignInDto();
 		String jsonRequest = objectMapper.writeValueAsString(dto);
-		User user = mock(User.class);
 		when(authService.authenticate(any(), any())).thenReturn(user);
-		when(user.getName()).thenReturn("username");
 		when(jwtService.createAccessTk(any())).thenReturn("mock-access-token");
 		when(jwtService.createRefreshTk(any())).thenReturn("mock-refresh-token");
 
@@ -123,6 +126,7 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.expiresIn").value(900));
 	}
 
+	/** Wrong credentials return 401 without field errors. */
 	@Test
 	void shouldNotSignIn() throws Exception {
 		SignInAccountRequestDto dto = TestDataFactory.createSignInDto();
@@ -138,10 +142,11 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.errors").doesNotExist());
 	}
 
+	/** A valid refresh cookie is exchanged for a new access token. */
 	@Test
 	void shouldCreateAccessTk() throws Exception {
 		when(jwtService.extractRefreshTk(any())).thenReturn("Token");
-		when(jwtService.validateRefreshTk(any())).thenReturn(TestDataFactory.createDefaultUser());
+		when(jwtService.validateRefreshTk(any())).thenReturn(user);
 		when(jwtService.createAccessTk(any())).thenReturn("mock-access-token");
 
 		mockMvc.perform(get("/auth/access-tk"))
@@ -152,6 +157,17 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.expiresIn").value(900));
 	}
 
+	/** An invalid refresh cookie (wrong type, user gone, ...) returns 401. */
+	@Test
+	void shouldRejectRefreshTk() throws Exception {
+		when(jwtService.extractRefreshTk(any())).thenReturn("Token");
+		when(jwtService.validateRefreshTk(any())).thenThrow(new BadCredentialsException("Invalid refresh token"));
+
+		mockMvc.perform(get("/auth/access-tk"))
+				.andExpect(status().isUnauthorized());
+	}
+
+	/** Without a refresh cookie the request is rejected with 401. */
 	@Test
 	void shouldNotCreateAccessTk() throws Exception {
 		when(jwtService.extractRefreshTk(any())).thenReturn(null);

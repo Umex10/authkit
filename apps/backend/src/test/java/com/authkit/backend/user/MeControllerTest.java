@@ -1,47 +1,53 @@
 package com.authkit.backend.user;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.security.KeyPairGenerator;
-import java.security.interfaces.RSAPublicKey;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import com.authkit.backend.auth.JwtService;
+import com.authkit.backend.auth.security.CustomUserDetailsService;
 import com.authkit.backend.auth.security.config.SecurityConfig;
 import com.authkit.backend.common.entities.User;
 import com.authkit.backend.common.repositories.UserRepository;
 import com.authkit.backend.utils.TestDataFactory;
+import com.authkit.backend.utils.TestKeys;
 
 /**
  * Web-layer test for the protected {@link MeController} routes, exercised
  * through the real {@link SecurityConfig} filter chain (incl. method security).
  *
  * <p>
- * Requests are authenticated with {@code jwt()} from spring-security-test, which
- * puts an already verified JWT into the security context. This checks the
- * controller, reading the user id from the token subject and the role-based
- * {@code @PreAuthorize} rules. Token verification itself (signature, expiry,
- * {@code type_tk}) is bypassed here and is not covered by this class.
+ * Two kinds of requests are used:
+ * <ul>
+ * <li>{@code authenticatedAs(...)} puts an already verified JWT into the
+ * security context ({@code jwt()} from spring-security-test). This checks the
+ * controller and the {@code @PreAuthorize} rules without token
+ * verification.</li>
+ * <li>Real tokens from {@link JwtService}, signed with {@link TestKeys}, sent in
+ * the {@code Authorization} header. They pass through the whole chain
+ * (filter, JwtDecoder, converter), so token verification is covered too.</li>
+ * </ul>
  */
 @WebMvcTest(MeController.class)
-@AutoConfigureMockMvc(addFilters = true)
-@Import({ SecurityConfig.class, MeControllerTest.TestKeyConfig.class })
+@Import({ SecurityConfig.class, CustomUserDetailsService.class, TestKeys.PublicKeyConfig.class })
 public class MeControllerTest {
 
 	@Autowired
@@ -50,9 +56,25 @@ public class MeControllerTest {
 	@MockitoBean
 	private UserRepository userRepository;
 
+	/** Only a tool to create real tokens; built by hand, not a Spring bean. */
+	private JwtService jwtService;
+
+	private final User user = TestDataFactory.createDefaultUser();
+
+	private final User admin = TestDataFactory.createAdminUser();
+
+	/**
+	 * Builds the token tool with the same key pair whose public key the
+	 * JwtDecoder uses ({@link TestKeys.PublicKeyConfig}).
+	 */
+	@BeforeEach
+	void setUp() {
+		jwtService = new JwtService(TestKeys.privateKey(), TestKeys.publicKey(), userRepository);
+	}
+
+	/** The controller reads the user id from the token subject and returns the user. */
 	@Test
 	void shouldReturnCurrentUser() throws Exception {
-		User user = TestDataFactory.createDefaultUser();
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 
 		mockMvc.perform(get("/me").with(authenticatedAs(user)))
@@ -62,23 +84,43 @@ public class MeControllerTest {
 				.andExpect(jsonPath("$.password").doesNotExist());
 	}
 
+	/** Without a token the request is rejected. */
 	@Test
 	void shouldRejectAnonymousAccessToMe() throws Exception {
 		mockMvc.perform(get("/me"))
 				.andExpect(status().isUnauthorized());
 	}
 
+	/**
+	 * A correctly signed refresh token in the {@code Authorization} header fails
+	 * the {@code type_tk == ACCESS} check in the JwtDecoder; the controller is
+	 * never reached.
+	 */
+	@Test
+	void shouldRejectRefreshTkUsedAsAccessTk() throws Exception {
+		String refreshTk = jwtService.createRefreshTk(user);
+
+		mockMvc.perform(get("/me")
+				.header("Authorization", "Bearer " + refreshTk))
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string("WWW-Authenticate", containsString("invalid_token")));
+
+		verifyNoInteractions(userRepository);
+	}
+
+	/** A regular user gets 403 on the admin route. */
 	@Test
 	void shouldForbidAdminRouteForRegularUser() throws Exception {
-		mockMvc.perform(get("/admin/ping").with(authenticatedAs(TestDataFactory.createDefaultUser()))) // role USER
+		mockMvc.perform(get("/admin/ping").with(authenticatedAs(user)))
 				.andExpect(status().isForbidden());
 	}
 
+	/** An admin may use the admin route. */
 	@Test
 	void shouldAllowAdminRouteForAdmin() throws Exception {
-		mockMvc.perform(get("/admin/ping").with(authenticatedAs(TestDataFactory.createAdminUser()))) // role ADMIN
+		mockMvc.perform(get("/admin/ping").with(authenticatedAs(admin)))
 				.andExpect(status().isOk())
-				.andExpect(content().string(org.hamcrest.Matchers.containsString("pong")));
+				.andExpect(content().string(containsString("pong")));
 	}
 
 	/**
@@ -90,20 +132,5 @@ public class MeControllerTest {
 		return jwt()
 				.jwt(token -> token.subject(user.getId().toString()))
 				.authorities(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
-	}
-
-	/**
-	 * Provides the {@link RSAPublicKey} bean that {@code KeyConfig} supplies in
-	 * the real app; {@code SecurityConfig#jwtDecoder} needs it for the context to
-	 * start. Static, so Spring can create it without a test instance.
-	 */
-	@TestConfiguration
-	static class TestKeyConfig {
-		@Bean
-		RSAPublicKey publicKey() throws Exception {
-			KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-			generator.initialize(2048);
-			return (RSAPublicKey) generator.generateKeyPair().getPublic();
-		}
 	}
 }

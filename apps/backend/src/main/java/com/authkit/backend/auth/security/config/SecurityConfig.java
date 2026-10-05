@@ -11,12 +11,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -143,15 +145,25 @@ public class SecurityConfig {
 	}
 
 	/**
-	 * Exposes the Spring-managed {@link AuthenticationManager} so the service
-	 * layer can trigger username/password authentication.
+	 * Exposes the {@link AuthenticationManager} the service layer uses for
+	 * email/password sign-in.
 	 *
-	 * @return the auto-configured authentication manager
-	 * @throws Exception when the underlying configuration cannot be resolved
+	 * <p>
+	 * Built explicitly from a {@link DaoAuthenticationProvider} instead of
+	 * {@code AuthenticationConfiguration#getAuthenticationManager()}: that
+	 * shortcut returns a proxy that delegates to the bean itself. The resource
+	 * server falls back to this manager whenever it rejects a bearer token, so the
+	 * proxy ended in an endless recursion ({@code StackOverflowError}) instead of
+	 * a 401.
+	 *
+	 * @return a manager that checks credentials against the {@link UserDetailsService}
 	 */
 	@Bean
-	public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-		return config.getAuthenticationManager();
+	public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
+			PasswordEncoder passwordEncoder) {
+		DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+		provider.setPasswordEncoder(passwordEncoder);
+		return new ProviderManager(provider);
 	}
 
 	/**

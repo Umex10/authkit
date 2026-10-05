@@ -1,58 +1,53 @@
 package com.authkit.backend.auth;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import java.security.KeyPairGenerator;
-import java.security.interfaces.RSAPublicKey;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.authkit.backend.auth.security.CustomUserDetailsService;
+import com.authkit.backend.auth.security.config.SecurityConfig;
+import com.authkit.backend.common.repositories.UserRepository;
+import com.authkit.backend.utils.TestKeys;
+
 /**
- * Web-layer test for {@link JwksController}.
+ * Web-layer test for {@link JwksController}, through the real
+ * {@link SecurityConfig} filter chain.
  *
  * <p>
- * Checks that the public key is published as a JWK set with the expected
- * fields and that no private key material ever leaves the service.
+ * Checks that the route is reachable without a token ({@code permitAll}), that
+ * the public key is published as a JWK set with the expected fields and that no
+ * private key material ever leaves the service.
  */
 @WebMvcTest(JwksController.class)
+@Import({ SecurityConfig.class, CustomUserDetailsService.class, TestKeys.PublicKeyConfig.class })
 public class JwksControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+	@Autowired
+	private MockMvc mockMvc;
 
-    /** The JWKS contains exactly one RSA signing key (n, e) and nothing private. */
-    @Test
-    void shouldCreateJwksJson() throws Exception {
-        mockMvc.perform(get("/.well-known/jwks.json"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.keys").isArray())
-                .andExpect(jsonPath("$.keys.length()").value(1))
-                .andExpect(jsonPath("$.keys[0].kty").value("RSA"))
-                .andExpect(jsonPath("$.keys[0].use").value("sig"))
-                .andExpect(jsonPath("$.keys[0].alg").value("RS256"))
-                .andExpect(jsonPath("$.keys[0].n").isNotEmpty())
-                .andExpect(jsonPath("$.keys[0].e").value("AQAB"))
-                .andExpect(jsonPath("$.keys[0].d").doesNotExist()); // "d" is the private exponent: it must never be published
-    }
+	/** Needed by {@link CustomUserDetailsService}, which SecurityConfig's AuthenticationManager requires. */
+	@MockitoBean
+	private UserRepository userRepository;
 
-    /**
-     * Provides the {@link RSAPublicKey} bean that {@code KeyConfig} supplies in
-     * the real app ({@code @WebMvcTest} does not load {@code @Configuration}
-     * classes). Static, so Spring can create it without a test instance.
-     */
-    @TestConfiguration
-    static class TestKeyConfig {
-        @Bean
-        RSAPublicKey publicKey() throws Exception {
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-            generator.initialize(2048);
-            return (RSAPublicKey) generator.generateKeyPair().getPublic();
-        }
-    }
+	/** Without a token, the JWKS contains exactly one RSA signing key (n, e) and nothing private. */
+	@Test
+	void shouldCreateJwksJson() throws Exception {
+		mockMvc.perform(get("/.well-known/jwks.json"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.keys").isArray())
+				.andExpect(jsonPath("$.keys.length()").value(1))
+				.andExpect(jsonPath("$.keys[0].kty").value("RSA"))
+				.andExpect(jsonPath("$.keys[0].use").value("sig"))
+				.andExpect(jsonPath("$.keys[0].alg").value("RS256"))
+				.andExpect(jsonPath("$.keys[0].n").isNotEmpty())
+				.andExpect(jsonPath("$.keys[0].e").value("AQAB"))
+				.andExpect(jsonPath("$.keys[0].d").doesNotExist()); // "d" is the private exponent: it must never be published
+	}
 }
