@@ -1,7 +1,5 @@
 package com.authkit.backend.auth.security;
 
-import java.util.UUID;
-
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
