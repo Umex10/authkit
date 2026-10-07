@@ -41,7 +41,8 @@ import com.authkit.backend.utils.TestKeys;
  * security context ({@code jwt()} from spring-security-test). This checks the
  * controller and the {@code @PreAuthorize} rules without token
  * verification.</li>
- * <li>Real tokens from {@link JwtService}, signed with {@link TestKeys}, sent in
+ * <li>Real tokens from {@link JwtService}, signed with {@link TestKeys}, sent
+ * in
  * the {@code Authorization} header. They pass through the whole chain
  * (filter, JwtDecoder, converter), so token verification is covered too.</li>
  * </ul>
@@ -72,7 +73,9 @@ public class MeControllerTest {
 		jwtService = new JwtService(TestKeys.privateKey(), TestKeys.publicKey(), userRepository);
 	}
 
-	/** The controller reads the user id from the token subject and returns the user. */
+	/**
+	 * The controller reads the user id from the token subject and returns the user.
+	 */
 	@Test
 	void shouldReturnCurrentUser() throws Exception {
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
@@ -82,6 +85,23 @@ public class MeControllerTest {
 				.andExpect(jsonPath("$.email").value(user.getEmail()))
 				.andExpect(jsonPath("$.role").value("USER"))
 				.andExpect(jsonPath("$.password").doesNotExist());
+	}
+
+	/**
+	 * A valid token whose user was deleted meanwhile: the controller throws
+	 * {@code EntityNotFoundException}, the global handler answers 404 in the common
+	 * error envelope.
+	 */
+	@Test
+	void shouldReturn404WhenUserNoLongerExists() throws Exception {
+		when(userRepository.findById(user.getId())).thenReturn(Optional.empty());
+
+		mockMvc.perform(get("/me").with(authenticatedAs(user)))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.error").value("Not Found"))
+				.andExpect(jsonPath("$.message").value("User " + user.getId() + " no longer exists."))
+				.andExpect(jsonPath("$.path").value("/me"));
 	}
 
 	/** Without a token the request is rejected. */
@@ -121,6 +141,34 @@ public class MeControllerTest {
 		mockMvc.perform(get("/admin/ping").with(authenticatedAs(admin)))
 				.andExpect(status().isOk())
 				.andExpect(content().string(containsString("pong")));
+	}
+
+	/**
+	 * A real admin access token passes the JwtDecoder; the converter turns the
+	 * {@code roles: ["ADMIN"]} claim into {@code ROLE_ADMIN}, so
+	 * {@code @PreAuthorize("hasRole('ADMIN')")} lets it through.
+	 */
+	@Test
+	void shouldMapRolesClaimToAdminAuthority() throws Exception {
+		String accessTk = jwtService.createAccessTk(admin);
+
+		mockMvc.perform(get("/admin/ping")
+				.header("Authorization", "Bearer " + accessTk))
+				.andExpect(status().isOk())
+				.andExpect(content().string(containsString("pong")));
+	}
+
+	/**
+	 * A real user access token carries {@code roles: ["USER"]}; the converter
+	 * maps it to {@code ROLE_USER} only, so the admin route answers 403.
+	 */
+	@Test
+	void shouldNotGrantAdminToUserToken() throws Exception {
+		String accessTk = jwtService.createAccessTk(user);
+
+		mockMvc.perform(get("/admin/ping")
+				.header("Authorization", "Bearer " + accessTk))
+				.andExpect(status().isForbidden());
 	}
 
 	/**

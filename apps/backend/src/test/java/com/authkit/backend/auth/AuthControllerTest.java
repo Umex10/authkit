@@ -1,6 +1,7 @@
 package com.authkit.backend.auth;
 
 import static org.hamcrest.Matchers.hasItems;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -73,9 +74,27 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.expiresIn").value(900));
 	}
 
+	/** Only the email is taken: 400 with exactly one field error for {@code email}. */
+	@Test
+	void shouldNotSignUpAccountWithSingleWrongField() throws Exception {
+		SignUpAccountRequestDto dto = TestDataFactory.createSignUpDto();
+		String jsonRequest = objectMapper.writeValueAsString(dto);
+		List<ApiError.FieldError> errors = List.of(
+				ApiError.FieldError.builder().field("email").message("The used email is already taken.").build());
+		when(authService.signUp(dto)).thenThrow(new OwnException(errors));
+
+		mockMvc.perform(post("/auth/sign-up")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(jsonRequest))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.errors").isArray())
+				.andExpect(jsonPath("$.errors[*].field").value(hasItems("email")));
+	}
+
 	/** Taken email and phone come back as 400 with one field error each. */
 	@Test
-	void shouldNotSignUpAccount() throws Exception {
+	void shouldNotSignUpAccountWithMultipleWrongFields() throws Exception {
 		SignUpAccountRequestDto dto = TestDataFactory.createSignUpDto();
 		String jsonRequest = objectMapper.writeValueAsString(dto);
 		List<ApiError.FieldError> errors = List.of(
@@ -92,7 +111,10 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.errors[*].field").value(hasItems("email", "phone")));
 	}
 
-	/** Bean validation rejects blank or malformed fields with 400 in the same error shape. */
+	/**
+	 * Bean validation rejects blank or malformed fields with 400 in the same error
+	 * shape.
+	 */
 	@Test
 	void shouldRejectInvalidSignUpPayload() throws Exception {
 		// Missing/blank fields must be rejected by bean validation and surfaced
@@ -142,6 +164,28 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.errors").doesNotExist());
 	}
 
+	/**
+	 * An unexpected exception from the service is caught by the catch-all handler
+	 * in the {@code GlobalExceptionHandler} and becomes a 500 in the common error
+	 * envelope; the application keeps running.
+	 */
+	@Test
+	void shouldNotSignInAndTriggerLastResortExceptionHandler() throws Exception {
+		SignInAccountRequestDto dto = TestDataFactory.createSignInDto();
+		String jsonRequest = objectMapper.writeValueAsString(dto);
+
+		when(authService.authenticate(any(), any()))
+				.thenThrow(new RuntimeException("Triggered last resort exception handler"));
+
+		mockMvc.perform(post("/auth/sign-in")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(jsonRequest))
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.status").value(500))
+				.andExpect(jsonPath("$.error").value("Internal Server Error"))
+				.andExpect(jsonPath("$.path").value("/auth/sign-in"));
+	}
+
 	/** A valid refresh cookie is exchanged for a new access token. */
 	@Test
 	void shouldCreateAccessTk() throws Exception {
@@ -169,8 +213,17 @@ public class AuthControllerTest {
 
 	/** Without a refresh cookie the request is rejected with 401. */
 	@Test
-	void shouldNotCreateAccessTk() throws Exception {
+	void shouldNotCreateAccessTkWithNullRefreshTk() throws Exception {
 		when(jwtService.extractRefreshTk(any())).thenReturn(null);
+
+		mockMvc.perform(get("/auth/access-tk"))
+				.andExpect(status().isUnauthorized());
+	}
+
+	/** A refresh cookie that is present but empty is treated like a missing one: 401. */
+	@Test
+	void shouldNotCreateAccessTkWithEmptyRefreshTk() throws Exception {
+		when(jwtService.extractRefreshTk(any())).thenReturn("");
 
 		mockMvc.perform(get("/auth/access-tk"))
 				.andExpect(status().isUnauthorized());

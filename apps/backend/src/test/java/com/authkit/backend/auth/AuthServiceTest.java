@@ -27,6 +27,8 @@ import com.authkit.backend.common.exception.OwnException;
 import com.authkit.backend.common.repositories.UserRepository;
 import com.authkit.backend.utils.TestDataFactory;
 
+import jakarta.persistence.EntityNotFoundException;
+
 /**
  * Unit tests for {@link AuthService}.
  *
@@ -34,7 +36,8 @@ import com.authkit.backend.utils.TestDataFactory;
  * Pure Mockito tests: no Spring context. Covers sign-up (unique email and phone
  * lead to a persisted, hashed user; taken fields lead to an
  * {@link OwnException} with one field error each) and sign-in (valid
- * credentials return the user, invalid ones throw).
+ * credentials return the user, invalid ones throw, and a user that vanishes
+ * after the credential check leads to an {@link EntityNotFoundException}).
  */
 @ExtendWith(MockitoExtension.class)
 public class AuthServiceTest {
@@ -60,7 +63,8 @@ public class AuthServiceTest {
 
 		when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.empty());
 		when(userRepository.findByPhone(user.getPhone())).thenReturn(Optional.empty());
-		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0)); // return what was saved
+		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0)); // return what
+																										// was saved
 		when(encoder.encode(dto.getPassword())).thenReturn(user.getPassword());
 
 		User savedUser = authService.signUp(dto);
@@ -100,7 +104,10 @@ public class AuthServiceTest {
 		assertEquals(user.getEmail(), returnedUser.getEmail());
 	}
 
-	/** Wrong credentials make the AuthenticationManager throw, and the error is passed on. */
+	/**
+	 * Wrong credentials make the AuthenticationManager throw, and the error is
+	 * passed on.
+	 */
 	@Test
 	void shouldNotAuthenticate() {
 		when(authenticationManager
@@ -109,6 +116,20 @@ public class AuthServiceTest {
 
 		assertThrows(org.springframework.security.core.AuthenticationException.class,
 				() -> authService.authenticate(user.getEmail(), user.getPassword()));
+	}
+
+	/**
+	 * Edge case: the credentials are accepted, but the user is gone by the time
+	 * it is loaded again (e.g. deleted in between) &rarr;
+	 * {@link EntityNotFoundException}.
+	 */
+	@Test
+	void shouldNotFindUserByEmailAfterSuccessfullAuthentication() {
+		when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class,
+				() -> authService.authenticate(user.getEmail(), user.getPassword()));
+
 	}
 
 }

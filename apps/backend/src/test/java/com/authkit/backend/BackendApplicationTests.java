@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class BackendApplicationTests {
 
+	/** Passes if the application context starts; the test body is intentionally empty. */
 	@Test
 	void contextLoads() {
 	}
