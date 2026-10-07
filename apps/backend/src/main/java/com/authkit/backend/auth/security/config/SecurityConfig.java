@@ -11,9 +11,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -145,25 +144,24 @@ public class SecurityConfig {
 	}
 
 	/**
-	 * Exposes the {@link AuthenticationManager} the service layer uses for
-	 * email/password sign-in.
+	 * Exposes Spring's global {@link AuthenticationManager} so the service layer
+	 * can use it for email/password sign-in.
 	 *
 	 * <p>
-	 * Built explicitly from a {@link DaoAuthenticationProvider} instead of
-	 * {@code AuthenticationConfiguration#getAuthenticationManager()}: that
-	 * shortcut returns a proxy that delegates to the bean itself. The resource
-	 * server falls back to this manager whenever it rejects a bearer token, so the
-	 * proxy ended in an endless recursion ({@code StackOverflowError}) instead of
-	 * a 401.
+	 * Spring builds this manager itself from the single {@link UserDetailsService}
+	 * bean ({@code CustomUserDetailsService}) and the {@link PasswordEncoder} bean.
+	 * It is also the parent of the resource server's manager. Requires exactly one
+	 * {@link UserDetailsService} in the context: with none (e.g. a test slice that
+	 * does not import it) or several, Spring falls back to a proxy that delegates
+	 * to this bean itself, which ends in a {@code StackOverflowError} on every
+	 * rejected bearer token.
 	 *
-	 * @return a manager that checks credentials against the {@link UserDetailsService}
+	 * @return the global authentication manager built by Spring
+	 * @throws Exception when the manager cannot be built
 	 */
 	@Bean
-	public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
-			PasswordEncoder passwordEncoder) {
-		DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
-		provider.setPasswordEncoder(passwordEncoder);
-		return new ProviderManager(provider);
+	public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+		return config.getAuthenticationManager();
 	}
 
 	/**
