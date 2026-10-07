@@ -132,12 +132,20 @@ Everything has a default, so you only set these to override.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `JWT_SECRET` | a dev secret | HS256 signing key — **must** be ≥ 256 bits. Override in production. |
+| `JWT_PRIVATE_KEY_LOCATION` | `file:./keys/private.pem` | RSA private key (PKCS#8 PEM) that signs the tokens (RS256). Keep it secret. |
+| `JWT_PUBLIC_KEY_LOCATION` | `file:./keys/public.pem` | Matching public key (PEM). Verifies tokens and is published at `/.well-known/jwks.json`. |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/authkit` | JDBC URL |
 | `DB_USER` / `DB_PASSWORD` | `authkit` / `authkit` | DB credentials |
 | `FRONTEND_URL` | `http://localhost:3000` | Allowed CORS origin(s), comma-separated, wildcards ok |
 
-Generate a strong secret with: `openssl rand -base64 48`.
+The backend does not start without the key pair, and the repository contains no
+keys (`keys/` is git-ignored). Generate a pair once, from `apps/backend`:
+
+```bash
+mkdir -p keys
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out keys/private.pem
+openssl pkey -in keys/private.pem -pubout -out keys/public.pem
+```
 
 ### Web frontend (`apps/web`)
 
