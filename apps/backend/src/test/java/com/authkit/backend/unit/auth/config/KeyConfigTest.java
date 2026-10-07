@@ -1,4 +1,4 @@
-package com.authkit.backend.auth.config;
+package com.authkit.backend.unit.auth.config;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 
+import com.authkit.backend.auth.config.KeyConfig;
 import com.authkit.backend.utils.TestKeys;
 
 /**

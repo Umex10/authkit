@@ -1,4 +1,4 @@
-package com.authkit.backend.auth;
+package com.authkit.backend.slice.auth;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.authkit.backend.auth.JwksController;
 import com.authkit.backend.auth.security.CustomUserDetailsService;
 import com.authkit.backend.auth.security.config.SecurityConfig;
 import com.authkit.backend.common.repositories.UserRepository;

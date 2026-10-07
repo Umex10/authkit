@@ -1,4 +1,4 @@
-package com.authkit.backend.user;
+package com.authkit.backend.slice.user;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -27,6 +27,7 @@ import com.authkit.backend.auth.security.CustomUserDetailsService;
 import com.authkit.backend.auth.security.config.SecurityConfig;
 import com.authkit.backend.common.entities.User;
 import com.authkit.backend.common.repositories.UserRepository;
+import com.authkit.backend.user.MeController;
 import com.authkit.backend.utils.TestDataFactory;
 import com.authkit.backend.utils.TestKeys;
 

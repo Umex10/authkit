@@ -1,4 +1,4 @@
-package com.authkit.backend;
+package com.authkit.backend.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

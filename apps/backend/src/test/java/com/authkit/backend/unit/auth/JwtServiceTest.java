@@ -1,4 +1,4 @@
-package com.authkit.backend.auth;
+package com.authkit.backend.unit.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.BadCredentialsException;
 
+import com.authkit.backend.auth.JwtService;
 import com.authkit.backend.common.entities.User;
 import com.authkit.backend.common.repositories.UserRepository;
 import com.authkit.backend.utils.TestDataFactory;

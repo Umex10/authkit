@@ -1,4 +1,4 @@
-package com.authkit.backend.security;
+package com.authkit.backend.unit.auth.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

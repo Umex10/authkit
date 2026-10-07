@@ -1,4 +1,4 @@
-package com.authkit.backend.auth;
+package com.authkit.backend.unit.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -20,6 +20,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.authkit.backend.auth.AuthService;
 import com.authkit.backend.auth.dto.requests.SignUpAccountRequestDto;
 import com.authkit.backend.common.entities.User;
 import com.authkit.backend.common.exception.ApiError;

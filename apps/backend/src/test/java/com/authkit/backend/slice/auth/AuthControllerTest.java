@@ -1,4 +1,4 @@
-package com.authkit.backend.auth;
+package com.authkit.backend.slice.auth;
 
 import static org.hamcrest.Matchers.hasItems;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,6 +20,9 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.authkit.backend.auth.AuthController;
+import com.authkit.backend.auth.AuthService;
+import com.authkit.backend.auth.JwtService;
 import com.authkit.backend.auth.dto.requests.SignInAccountRequestDto;
 import com.authkit.backend.auth.dto.requests.SignUpAccountRequestDto;
 import com.authkit.backend.common.entities.User;
