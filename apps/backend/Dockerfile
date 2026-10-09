@@ -6,6 +6,10 @@
 # Build context is apps/backend (see docker-compose.yml).
 # =============================================================================
 
+#JDK  =  JRE + Compiler (javac) und weitere Entwicklerwerkzeuge
+#JRE  =  JVM + Standardbibliothek + der Befehl java
+#JVM  =  das Programm, das Bytecode ausführt
+
 # ---- Build stage ------------------------------------------------------------
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
