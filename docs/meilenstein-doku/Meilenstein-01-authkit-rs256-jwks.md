@@ -1,16 +1,17 @@
-# M01 – AuthKit: Umstellung von HS256 auf RS256 mit JWKS-Endpoint
+# Meilenstein 01 – AuthKit: Umstellung von HS256 auf RS256 mit JWKS-Endpoint
 
 | Feld | Wert |
 |---|---|
-| Arbeitszeitraum | Di 2026-09-29 – Do 2026-10-01, an allen drei Tagen in kleinen Etappen |
-| Commit-Zeitraum | Do 2026-10-01, 22:40 – 23:17 |
+| Projekt | Overex |
+| Zeitraum | 2026-09-29 – 2026-10-01 |
 | Dokumentiert am | 2026-10-04 21:01 CEST |
 | Repository / Service | `authkit` (github.com/Umex10/authkit), Backend `apps/backend` (künftiger `auth-service` von Overex) |
-| Commits | 2 (`715af9b`..`23bd50b`), Branch `feature/rs256-jwks`, Start = Tag `v1-hs256` |
+| Thema | Auth: Tokens mit RS256 statt HS256 signieren, Prüfung über den OAuth2 Resource Server, öffentlicher Key als JWKS |
+| Commits | 2 (`715af9b`..`23bd50b`), Branch `feature/rs256-jwks`, Start = Tag `v1-hs256`, über PR #1 (`edd0e90`) nach `main` gemergt |
 | Zeitaufwand | ca. 4 h |
 | Bezug | Projektarbeit (5. Semester, Abgabe Jänner 2027) und Grundlage für die Bachelorarbeit (6. Semester) |
 
-Ich habe erst am Donnerstag committet, weil das Feature vorher nicht fertig war. Ich wollte keine halben, fehlerhaften Zwischenstände committen.
+Gearbeitet habe ich von Dienstag bis Donnerstag in kleinen Etappen. Committet habe ich erst am Donnerstag, weil das Feature vorher nicht fertig war. Ich wollte keine halben, fehlerhaften Zwischenstände committen.
 
 ## Ziel
 
@@ -35,26 +36,12 @@ Für Microservices passt das aus zwei Gründen nicht:
 1. **Wer prüfen kann, kann auch fälschen.** Jeder Service hätte den geheimen Key gebraucht. Damit hätte jeder Service auch gültige Tokens erstellen können.
 2. **Jeder Service hat seine eigene Datenbank.** Andere Services können die User des `auth-service` nicht laden. Der Filter hätte dort nicht funktioniert.
 
-## Umsetzung (chronologisch)
+## Umsetzung (nach Commits)
 
-1. **Di–Mi** – Bestehenden Code durchgearbeitet. Tag `v1-hs256` auf den HS256-Stand gesetzt und einen eigenen Branch angelegt. Einen ersten, komplett von Claude erstellten Umbau habe ich verworfen, weil ich jeden Schritt selbst bauen und verstehen wollte.
-2. **Mi** – RSA-Schlüsselpaar mit openssl erzeugt. Die Keys liegen lokal und kommen weder ins Repo noch ins Docker-Image.
-3. **Do** – Keys in Spring geladen (`KeyConfig`) und `JwtService` auf RS256 umgestellt. Tokens enthalten jetzt die User-ID als `sub`, Access-Tokens zusätzlich `email` und `roles`.
-4. **Do** – Den eigenen Filter durch den OAuth2 Resource Server von Spring Security ersetzt. Er prüft Access-Tokens nur mit dem öffentlichen Key (`87bec2b`).
-5. **Do** – JWKS-Endpoint gebaut, über den andere Services den öffentlichen Key abrufen (`23bd50b`).
+Die Zeitpunkte der Commits stehen im Commit-Verlauf am Ende.
 
-## Geänderte Dateien
-
-| Datei | Art | Zweck |
-|---|---|---|
-| `auth/config/KeyConfig.java` | neu | lädt privaten und öffentlichen Key aus PEM-Dateien |
-| `auth/JwtService.java` | geändert | signiert mit RS256, neue Claims, prüft Refresh-Tokens mit dem öffentlichen Key |
-| `auth/security/config/SecurityConfig.java` | geändert | Resource Server statt eigenem Filter, Prüfung des Token-Typs, Rollen aus dem Token |
-| `auth/security/JwtAuthFilter.java` | gelöscht | ersetzt durch den Resource Server |
-| `auth/JwksController.java` | neu | stellt den öffentlichen Key unter `/.well-known/jwks.json` bereit |
-| `user/MeController.java` | geändert | liest die User-ID direkt aus dem geprüften Token |
-
-Pfade relativ zu `apps/backend/src/main/java/com/authkit/backend/`. Dazu kleinere Anpassungen in `AuthService`, `AuthController`, `pom.xml`, Konfiguration und Tests.
+1. **`87bec2b`** – Vorbereitung: Tag `v1-hs256` auf den HS256-Stand gesetzt, einen eigenen Branch angelegt und ein RSA-Schlüsselpaar mit openssl erzeugt. Die Keys liegen lokal und kommen weder ins Repo noch ins Docker-Image. Dann die Keys in Spring geladen (`KeyConfig`, neu) und `JwtService` auf RS256 umgestellt: Tokens enthalten jetzt die User-ID als `sub`, Access-Tokens zusätzlich `email` und `roles`. Den eigenen `JwtAuthFilter` habe ich gelöscht und durch den OAuth2 Resource Server von Spring Security ersetzt (`SecurityConfig`). Er prüft Access-Tokens nur mit dem öffentlichen Key und lehnt Tokens ab, deren `type_tk` nicht `ACCESS` ist. `MeController` liest die User-ID direkt aus dem geprüften Token.
+2. **`23bd50b`** – `JwksController` (neu), über den andere Services den öffentlichen Key unter `/.well-known/jwks.json` abrufen.
 
 ## Entscheidungen
 
@@ -95,12 +82,6 @@ Pfade relativ zu `apps/backend/src/main/java/com/authkit/backend/`. Dazu kleiner
 - **Problem:** `loadUserByUsername` wurde auf die User-ID umgestellt, Spring ruft es beim Login aber mit der E-Mail auf. → **Lösung:** Login bleibt bei der E-Mail, nur der Refresh lädt per ID.
 - **Problem:** Die Prüfung auf `REFRESH` war umgekehrt und verglich einen String mit einem Enum. → **Lösung:** korrekter Vergleich über `name()`, Fehler als 401 statt 500.
 - **Problem:** Der Backend-Container lief noch mit altem Code, und die Keys sind absichtlich nicht im Image. → **Lösung:** Backend vorerst lokal mit Maven gestartet. `docker-compose` passe ich noch an.
-
-## Eingesetzte Hilfsmittel
-
-Ich habe Claude (Claude Code) als Lernbegleiter eingesetzt. Claude hat mir die Konzepte erklärt und die Schritte vorgegeben. Den Großteil des Umbaus habe ich selbst geschrieben. Auf meinen Wunsch hat Claude einzelne Teile übernommen: Teile von `KeyConfig`, den `JwtAuthenticationConverter`, den `JwksController`, das Aufräumen von Javadoc und Imports sowie das Anpassen der Tests, damit sie kompilieren. Einen ersten kompletten Umbau durch Claude habe ich verworfen.
-
-Hinweis: Die FH-Richtlinien zur Kennzeichnung von KI-Unterstützung sind zu beachten.
 
 ## Offene Punkte / Nächste Schritte
 
