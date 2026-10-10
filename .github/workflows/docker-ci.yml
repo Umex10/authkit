@@ -1,0 +1,55 @@
+# Builds the backend Docker image on every push to a non-main branch, so a
+# broken image shows up before the code reaches main. Nothing is pushed;
+# publishing to ghcr.io happens in a separate workflow on main.
+name: docker-ci
+
+on:
+  push:
+    # main is handled by the publish workflow.
+    branches-ignore:
+      - main
+    # Only run when something the image depends on changes (not apps/web or
+    # apps/mobile). "**" matches every file in every subfolder.
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/docker-ci.yml"
+
+# Least privilege: the job only needs to read (check out) the repository.
+permissions:
+  contents: read
+
+# One run per branch: a newer push cancels the run of the older commit.
+# github.ref is filled in by GitHub at run time (e.g. refs/heads/feature/docker).
+concurrency:
+  group: docker-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-image:
+    # A fresh Ubuntu machine per run; Docker is pre-installed, but there is no
+    # code, no .m2 and no Docker layer cache on it at the start.
+    runs-on: ubuntu-latest
+    steps:
+      # Clones the commit that triggered the run into the working directory.
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Buildx is Docker's extended builder; unlike plain "docker build" it can
+      # store and load layers in an external cache such as the GitHub cache.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Builds apps/backend/Dockerfile with Buildx.
+      - name: Build backend image
+        uses: docker/build-push-action@v7
+        with:
+          # Build context: the folder sent to Docker; its Dockerfile is used.
+          context: apps/backend
+          # Only verify that the image builds; do not upload it anywhere.
+          push: false
+          # Reuse layers from the GitHub Actions cache ("gha") of earlier runs.
+          cache-from: type=gha
+          # Save the layers back afterwards. mode=max also stores the layers of
+          # the build stage (incl. the downloaded Maven dependencies), not only
+          # those of the final runtime image.
+          cache-to: type=gha,mode=max
