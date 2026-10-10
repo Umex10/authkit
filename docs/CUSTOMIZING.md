@@ -102,7 +102,8 @@ pages if you prefer a single-column layout.
 
 - Backend Java package `com.authkit.backend` → your package (rename folders +
   the `package`/`import` statements; `groupId` in `pom.xml`).
-- Database name, container names and the `JWT_SECRET` default live in
+- Database name, container names and the JWT key locations
+  (`JWT_PRIVATE_KEY_LOCATION`, `JWT_PUBLIC_KEY_LOCATION`) live in
   `apps/backend/src/main/resources/application*.properties` and
   `docker-compose*.yml`.
 - Frontend package names in `apps/web/package.json` and

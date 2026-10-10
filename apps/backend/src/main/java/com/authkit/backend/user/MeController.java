@@ -4,8 +4,9 @@ import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.authkit.backend.common.entities.User;
@@ -25,13 +26,13 @@ import lombok.RequiredArgsConstructor;
  * the two building blocks AuthKit gives you for your own feature controllers:
  *
  * <ul>
- *   <li><b>{@code @RequestAttribute UUID userId}</b> — the id the
- *       {@link com.authkit.backend.auth.security.JwtAuthFilter} put on the
- *       request after validating the token. No security-context digging needed.</li>
+ *   <li><b>{@code @AuthenticationPrincipal Jwt jwt}</b> — the already verified
+ *       access token. {@code jwt.getSubject()} is the user id; other claims
+ *       ({@code email}, {@code roles}) are available without a database lookup.</li>
  *   <li><b>{@code @PreAuthorize("hasRole('ADMIN')")}</b> — method-level role
- *       checks, powered by the {@code ROLE_<NAME>} authority that
- *       {@link com.authkit.backend.auth.security.CustomUserDetails} derives from
- *       the user's role.</li>
+ *       checks, powered by the {@code ROLE_<NAME>} authorities that
+ *       {@link com.authkit.backend.auth.security.config.SecurityConfig} builds
+ *       from the token's {@code roles} claim.</li>
  * </ul>
  *
  * <p>The {@code @SecurityRequirement} annotation is what makes these endpoints
@@ -48,12 +49,13 @@ public class MeController {
 	/**
 	 * Returns the currently authenticated user.
 	 *
-	 * @param userId injected by {@code JwtAuthFilter} from the validated token
+	 * @param jwt the verified access token, injected by Spring Security
 	 * @return the password-free projection of the signed-in user
 	 */
 	@Operation(summary = "Get the current user", description = "Returns the account behind the supplied access token.")
 	@GetMapping("/me")
-	public ResponseEntity<UserResponseDto> me(@RequestAttribute("userId") UUID userId) {
+	public ResponseEntity<UserResponseDto> me(@AuthenticationPrincipal Jwt jwt) {
+		UUID userId = UUID.fromString(jwt.getSubject());
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new EntityNotFoundException("User " + userId + " no longer exists."));
 		return ResponseEntity.ok(UserResponseDto.from(user));

@@ -3,3 +3,7 @@ target/
 .git/
 .gitignore
 HELP.md
+
+# JWT signing keys: must never end up inside the image (mount them at runtime)
+keys/
+*.pem

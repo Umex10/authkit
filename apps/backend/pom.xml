@@ -93,6 +93,14 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
+		<!-- OAuth2 Resource Server: verifies bearer JWTs with the public key (no custom filter
+		needed). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+		</dependency>
+
+
 		<!-- Test slices (web / jpa / validation) — Spring Boot 4 split starters. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -164,6 +172,38 @@
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
+			</plugin>
+			<!-- JaCoCo: test coverage. Report: target/site/jacoco/index.html (after `./mvnw verify`). -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.15</version>
+				<configuration>
+					<!-- Only code where a test adds no value. Paths are relative to target/classes.
+					     Only src/main is ever measured, never target/ sources or test classes.
+					     Lombok-generated code is skipped via lombok.config. -->
+					<excludes>
+						<exclude>com/authkit/backend/BackendApplication.class</exclude> <!-- only main(); covered by the context test anyway -->
+						<exclude>com/authkit/backend/config/OpenApiConfig.class</exclude> <!-- annotations only, no logic -->
+					</excludes>
+				</configuration>
+				<executions>
+					<!-- Attaches the agent that records coverage while the tests run. -->
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<!-- Builds the HTML/XML/CSV report right after the tests. -->
+					<execution>
+						<id>report</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

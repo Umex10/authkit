@@ -1,4 +1,4 @@
-package com.authkit.backend;
+package com.authkit.backend.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class BackendApplicationTests {
 
+	/** Passes if the application context starts; the test body is intentionally empty. */
 	@Test
 	void contextLoads() {
 	}

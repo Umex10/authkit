@@ -20,7 +20,8 @@ import lombok.NonNull;
 /**
  * Centralised translation of thrown exceptions into HTTP error responses.
  *
- * <p>Maps domain and framework exceptions to the appropriate status codes and
+ * <p>
+ * Maps domain and framework exceptions to the appropriate status codes and
  * response shapes so controllers stay free of error-handling boilerplate. Two
  * envelope shapes coexist: {@link ErrorResponse} (used for generic 404/500
  * errors) and {@link ApiError} (used for validation and authentication errors
@@ -94,7 +95,8 @@ public class GlobalExceptionHandler {
 	 * {@code @PreAuthorize("hasRole('ADMIN')")} check raised during the
 	 * controller invocation) to a clean 403 response.
 	 *
-	 * <p>Without this handler the catch-all below would turn role-based denials
+	 * <p>
+	 * Without this handler the catch-all below would turn role-based denials
 	 * into a misleading 500.
 	 *
 	 * @return a 403 response with a generic permission-denied message

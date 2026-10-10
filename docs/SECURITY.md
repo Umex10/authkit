@@ -40,7 +40,10 @@
 
 ## Before you ship to production
 
-- [ ] **Set a real `JWT_SECRET`** (`openssl rand -base64 48`) via env — never use the dev default.
+- [ ] **Use a production RSA key pair.** Generate it once (see `RUNNING.md`) and point
+      `JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` at it. Never reuse a dev
+      key, never commit `private.pem`, and give only the backend access to it —
+      other services need just the public key (`/.well-known/jwks.json`).
 - [ ] **Serve over HTTPS** and set the refresh cookie's `secure` flag to `true`
       — in `AuthController#createAuthResponseDto` (backend) and in
       `setRefreshCookie` (`apps/web/actions/auth-action.ts`). Mobile keeps the

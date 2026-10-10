@@ -1,0 +1,96 @@
+# Builds the backend Docker image on main and pushes it to ghcr.io.
+# Feature branches are only built, not pushed (see docker-ci.yml).
+name: docker-publish
+
+on:
+  push:
+    # Only main; a merge into main is a push to main as well.
+    branches:
+      - main
+    # Only run when something the image depends on changes.
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/docker-publish.yml"
+  # Adds a "Run workflow" button in the Actions tab to start this workflow by
+  # hand, e.g. to republish the image without a code change after the base
+  # image (eclipse-temurin:21-jre) received a security update.
+  workflow_dispatch:
+
+# Rights of the automatic GITHUB_TOKEN for this workflow:
+# read the code, and write packages (push the image to ghcr.io).
+permissions:
+  contents: read
+  packages: write
+
+# Controls runs that overlap in time.
+concurrency:
+  # The name of a queue; runs with the same group name affect each other.
+  # No branch in the name: this workflow only runs on main, so one queue
+  # for all of its runs is enough.
+  group: docker-publish
+  # A newer run waits until the running one is done instead of cancelling it:
+  # a cancelled push could leave a half-uploaded image, and every merge to main
+  # should get its own image.
+  cancel-in-progress: false
+
+jobs:
+  publish-image:
+    # A fresh Ubuntu machine per run with Docker pre-installed. Java is not
+    # needed here: the Dockerfile builds the jar inside the JDK image.
+    runs-on: ubuntu-latest
+    steps:
+      # Clones the commit that triggered the run.
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Sets up Buildx, Docker's extended builder. Only the tool: the build
+      # step below uses it to read/write the GitHub cache and to push.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Logs Docker in to ghcr.io so the image can be pushed there later.
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v4
+        with:
+          # Which registry to log in to.
+          registry: ghcr.io
+          # The GitHub user who triggered the run.
+          username: ${{ github.actor }}
+          # The automatic token of this run; may push thanks to packages: write.
+          # Values from "secrets" are masked as *** in the logs.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Computes the image name, tags and labels for the push below. It only
+      # produces text; building and tagging happen in the next step.
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          # ghcr.io/<owner>/authkit-backend; the action lowercases it
+          # (image names must not contain capital letters, e.g. "Umex10").
+          images: ghcr.io/${{ github.repository_owner }}/authkit-backend
+          # One tag rule per line (one image, several names):
+          # - "latest" always points to the newest image built from main.
+          # - "sha-<short commit>" points to exactly this commit, forever.
+          # Labels (e.g. the source repository) are created automatically.
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      # Builds apps/backend/Dockerfile and pushes it under every tag from "meta".
+      - name: Build and push backend image
+        uses: docker/build-push-action@v7
+        with:
+          # Build context: the folder sent to Docker; its Dockerfile is used.
+          context: apps/backend
+          # Upload the image to ghcr.io after building it.
+          push: true
+          # Image names with tags from the metadata step (latest, sha-<commit>).
+          tags: ${{ steps.meta.outputs.tags }}
+          # Labels from the metadata step, e.g. the source repository, which
+          # links the package to this repository on GitHub.
+          labels: ${{ steps.meta.outputs.labels }}
+          # Same layer cache as in docker-ci; the cache saved here on main is
+          # also readable by every feature branch.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

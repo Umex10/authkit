@@ -46,10 +46,11 @@ services:
       DB_USER: authkit
       DB_PASSWORD: authkit
       # Override these in any real deployment.
-      JWT_SECRET: vyHwvufyR5011fbuZ0VqmvuMCGPHwF5hfpzpm5ACNp9MfakocpIaKI8IwcWiI3r5
       FRONTEND_URL: http://localhost:3000
     ports:
       - "8080:8080"
+    volumes:
+      - ./apps/backend/keys:/app/keys:ro
 
   swagger-ui:
     image: swaggerapi/swagger-ui
