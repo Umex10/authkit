@@ -1,0 +1,92 @@
+# Runs the backend tests and builds the jar (./mvnw verify) on every push, on
+# every branch including main, so broken code is noticed before and after a
+# merge. Independent of the Docker workflows, which run in parallel.
+name: backend-verify-ci
+
+on:
+  push:
+    # No branch filter: tests run everywhere, main included.
+    # Only run when backend code or this workflow changes.
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend-verify-ci.yml"
+  # "Run workflow" button in the Actions tab to start it by hand.
+  workflow_dispatch:
+
+# Least privilege: the job only needs to read the repository.
+permissions:
+  contents: read
+
+# Controls runs that overlap in time.
+concurrency:
+  # The name of a queue. Runs with the same group name affect each other,
+  # runs with different names run in parallel. github.ref is the branch
+  # (e.g. refs/heads/feature/docker), so every branch gets its own queue; the
+  # workflow-name prefix keeps this workflow apart from the other workflows
+  # running on the same branch.
+  group: backend-verify-ci-${{ github.ref }}
+  # A newer run in the same group cancels the running one of the older commit.
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # A fresh Ubuntu machine per run. No Docker is involved here: Maven runs
+    # directly on this machine, so the machine itself needs a JDK (next steps).
+    runs-on: ubuntu-latest
+    steps:
+      # Clones the commit that triggered the run.
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Installs JDK 21 (Eclipse Temurin, the same as in the Dockerfile) on the
+      # machine and caches the Maven repository (~/.m2/repository) between runs.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          # Vendor of the JDK.
+          distribution: temurin
+          # Java version; quoted so YAML reads it as text, not as a number.
+          java-version: "21"
+          # Downloads ~/.m2/repository from the GitHub cache of this repository
+          # at the start and uploads it again at the end of the job, so Maven
+          # does not download every dependency on every run.
+          cache: maven
+          # The cache key is derived from this file: a new key (and a fresh
+          # download) only when the dependencies in pom.xml change.
+          cache-dependency-path: apps/backend/pom.xml
+
+      # Compiles, runs the tests, builds the jar and writes the JaCoCo report.
+      # -B: batch mode (no prompts, no progress bars in the log).
+      # TEMPORARY: the integration tests are excluded ("!" = all except) because
+      # BackendApplicationTests still needs local key files that do not exist
+      # on the runner. Remove the -Dtest part once that test creates its own
+      # keys.
+      - name: Test and build (./mvnw verify)
+        # Run the command in apps/backend, where mvnw and pom.xml live
+        # (a "run" step starts in the repository root otherwise).
+        working-directory: apps/backend
+        run: ./mvnw -B verify -Dtest='!com/authkit/backend/integration/**'
+
+      # Keeps the test results and the coverage report as an artifact: a zip
+      # attached to this run, downloadable at the bottom of the run page.
+      # Without this step the files would be deleted together with the machine.
+      - name: Upload test and coverage reports
+        # By default a step only runs if all previous steps succeeded, so it
+        # would be skipped after failing tests, exactly when the reports matter.
+        # !cancelled() runs it after success and after failure, but not when
+        # the run was cancelled (e.g. by a newer push, see concurrency above).
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          # Name of the download on the run page.
+          name: backend-reports
+          # Surefire test results and the JaCoCo HTML report.
+          path: |
+            apps/backend/target/surefire-reports/
+            apps/backend/target/site/jacoco/
+          # If the folders are missing (e.g. after a compile error), stay quiet.
+          # The default "warn" would only log a warning; "error" would fail the
+          # step. The real cause is already shown in the step above.
+          if-no-files-found: ignore
+          # Delete the artifact after 14 days to save storage.
+          retention-days: 14
