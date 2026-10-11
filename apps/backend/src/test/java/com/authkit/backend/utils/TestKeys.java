@@ -1,13 +1,14 @@
 package com.authkit.backend.utils;
 
+import java.nio.file.Path;
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+
+import com.authkit.backend.auth.config.RsaKeyFiles;
 
 /**
  * Central source of the RSA keys used in tests.
@@ -17,12 +18,13 @@ import org.springframework.context.annotation.Bean;
  * runtime. {@link #PAIR} is created once per test run and shared by all tests:
  * generating a 2048-bit pair is slow and a key never changes. Tests that need
  * an unrelated key (e.g. to forge a token with a wrong signature) call
- * {@link #generateKeyPair()}.
+ * {@link RsaKeyFiles#generateKeyPair()}. Generating and writing the keys is
+ * done by {@link RsaKeyFiles}, the same code the application uses on startup.
  */
 public final class TestKeys {
 
 	/** The key pair the code under test signs and verifies with. */
-	public static final KeyPair PAIR = generateKeyPair();
+	public static final KeyPair PAIR = RsaKeyFiles.generateKeyPair();
 
 	private TestKeys() {
 	}
@@ -37,15 +39,13 @@ public final class TestKeys {
 		return (RSAPublicKey) PAIR.getPublic();
 	}
 
-	/** Generates a fresh 2048-bit RSA key pair, unrelated to {@link #PAIR}. */
-	public static KeyPair generateKeyPair() {
-		try {
-			KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-			generator.initialize(2048);
-			return generator.generateKeyPair();
-		} catch (NoSuchAlgorithmException ex) {
-			throw new IllegalStateException("RSA is not available in this JVM", ex);
-		}
+	/**
+	 * Writes {@link #PAIR} as {@code private.pem} and {@code public.pem} into the
+	 * given directory, so the real {@code KeyConfig} can read them through
+	 * {@code jwt.private-key-location} / {@code jwt.public-key-location}.
+	 */
+	public static void writePemFiles(Path directory) {
+		RsaKeyFiles.write(PAIR, directory.resolve("private.pem"), directory.resolve("public.pem"));
 	}
 
 	/**

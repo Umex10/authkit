@@ -24,6 +24,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.BadCredentialsException;
 
 import com.authkit.backend.auth.JwtService;
+import com.authkit.backend.auth.config.RsaKeyFiles;
 import com.authkit.backend.common.entities.User;
 import com.authkit.backend.common.repositories.UserRepository;
 import com.authkit.backend.utils.TestDataFactory;
@@ -108,7 +109,7 @@ public class JwtServiceTest {
 	/** A refresh token signed with an unrelated private key fails the signature check. */
 	@Test
 	void shouldRejectRefreshTkSignedWithAnotherKey() {
-		KeyPair otherPair = TestKeys.generateKeyPair();
+		KeyPair otherPair = RsaKeyFiles.generateKeyPair();
 		JwtService otherService = new JwtService(
 				(RSAPrivateKey) otherPair.getPrivate(),
 				(RSAPublicKey) otherPair.getPublic(),
@@ -122,6 +123,8 @@ public class JwtServiceTest {
 	/** A correctly signed refresh token whose {@code exp} lies in the past is rejected. */
 	@Test
 	void shouldRejectExpiredRefreshTk() {
+		// JwtService always sets an expiry in the future, so the expired token is
+		// built directly with jjwt.
 		String expiredTk = Jwts.builder()
 				.setSubject(user.getId().toString())
 				.claim("type_tk", "REFRESH")
