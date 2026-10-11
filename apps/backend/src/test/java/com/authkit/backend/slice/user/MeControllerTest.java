@@ -43,8 +43,7 @@ import com.authkit.backend.utils.TestKeys;
  * controller and the {@code @PreAuthorize} rules without token
  * verification.</li>
  * <li>Real tokens from {@link JwtService}, signed with {@link TestKeys}, sent
- * in
- * the {@code Authorization} header. They pass through the whole chain
+ * in the {@code Authorization} header. They pass through the whole chain
  * (filter, JwtDecoder, converter), so token verification is covered too.</li>
  * </ul>
  */
@@ -55,6 +54,7 @@ public class MeControllerTest {
 	@Autowired
 	private MockMvc mockMvc;
 
+	/** Needed by {@link CustomUserDetailsService}, and stubbed for /me lookups. */
 	@MockitoBean
 	private UserRepository userRepository;
 
@@ -126,6 +126,7 @@ public class MeControllerTest {
 				.andExpect(status().isUnauthorized())
 				.andExpect(header().string("WWW-Authenticate", containsString("invalid_token")));
 
+		// proves the request was stopped before the controller looked up the user
 		verifyNoInteractions(userRepository);
 	}
 

@@ -40,6 +40,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * the error envelopes produced by the global exception handler.
  */
 @WebMvcTest(AuthController.class)
+// The slice only auto-configures Jackson 3; this test needs a Jackson 2
+// ObjectMapper to turn the request DTOs into JSON.
 @Import(ObjectMapper.class)
 public class AuthControllerTest {
 
@@ -74,7 +76,7 @@ public class AuthControllerTest {
 				.andExpect(jsonPath("$.accessTk").isString())
 				.andExpect(jsonPath("$.accessTk").isNotEmpty())
 				.andExpect(jsonPath("$.expiresIn").isNumber())
-				.andExpect(jsonPath("$.expiresIn").value(900));
+				.andExpect(jsonPath("$.expiresIn").value(900)); // seconds = the 15-minute access-token lifetime
 	}
 
 	/** Only the email is taken: 400 with exactly one field error for {@code email}. */
@@ -164,6 +166,7 @@ public class AuthControllerTest {
 				.content(jsonRequest))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.status").value(401))
+				// no field errors: the response must not reveal whether the email exists
 				.andExpect(jsonPath("$.errors").doesNotExist());
 	}
 
@@ -231,5 +234,4 @@ public class AuthControllerTest {
 		mockMvc.perform(get("/auth/access-tk"))
 				.andExpect(status().isUnauthorized());
 	}
-
 }

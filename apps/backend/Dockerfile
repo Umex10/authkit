@@ -58,6 +58,11 @@ USER authkit
 # dependencies). *.jar does not match the thin "*.jar.original".
 COPY --from=build /app/target/*.jar app.jar
 
+# Never generate JWT keys inside the container: they must be mounted (see
+# docker-compose.yml). Missing keys then stop the service with a clear error
+# instead of signing with a throwaway key that changes on every restart.
+ENV JWT_GENERATE_MISSING_KEYS=false
+
 # Documentation only: the app listens on 8080. Publishing the port is done when
 # the container starts (e.g. "ports:" in docker-compose.yml).
 EXPOSE 8080

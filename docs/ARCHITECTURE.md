@@ -21,12 +21,16 @@ flowchart TB
     end
 
     subgraph "Spring Boot — AuthKit API (/api/v1)"
-        SEC["SecurityConfig + JwtAuthFilter"]
+        SEC["SecurityConfig<br/>OAuth2 resource server (JwtDecoder)"]
         AUTH["AuthController /auth/**"]
         ME["MeController /me, /admin/**"]
-        JWT["JwtService"]
+        JWKS["JwksController<br/>/.well-known/jwks.json"]
+        JWT["JwtService<br/>signs with the private key"]
+        KEYS["KeyConfig<br/>RSA key pair from PEM files"]
         DB[("PostgreSQL<br/>users")]
     end
+
+    OTHER["Other microservices<br/>verify tokens themselves"]
 
     UI --> RTK
     UI -->|"navigations"| PROXY
@@ -37,6 +41,10 @@ flowchart TB
     AUTH --> DB
     SEC --> ME
     ME --> DB
+    KEYS -->|"private key"| JWT
+    KEYS -->|"public key"| SEC
+    KEYS -->|"public key"| JWKS
+    OTHER -->|"GET jwks.json (once, cached)"| JWKS
 ```
 
 **Why a BFF?** The auth calls go through **Next.js Server Actions**, not directly
@@ -146,25 +154,29 @@ the keystore for a refresh token on mount and `router.replace`s to the dashboard
 sequenceDiagram
     autonumber
     participant C as Client
-    participant F as JwtAuthFilter
-    participant J as JwtService
-    participant UDS as CustomUserDetailsService
+    participant F as BearerTokenAuthenticationFilter
+    participant D as JwtDecoder
+    participant CV as JwtAuthenticationConverter
     participant H as Controller
 
     C->>F: request with Authorization: Bearer <accessTk>
-    F->>J: validateTk(accessTk)
-    J->>UDS: loadUserByUsername(email from token subject)
-    UDS-->>J: CustomUserDetails (role -> ROLE_USER / ROLE_ADMIN)
-    J-->>F: UserDetails
-    F->>F: set SecurityContext + request attribute "userId"
-    F->>H: continue chain
-    H-->>C: response (or 403 if @PreAuthorize role check fails)
+    F->>D: decode(accessTk)
+    Note over D: RS256 signature (public key),<br/>exp / nbf, type_tk == ACCESS
+    alt token invalid, expired or a refresh token
+        D-->>C: 401 + WWW-Authenticate: Bearer error="invalid_token"
+    else valid
+        D-->>F: Jwt (claims)
+        F->>CV: convert(jwt)
+        CV-->>F: authorities from "roles" claim (ROLE_USER / ROLE_ADMIN)
+        F->>H: SecurityContext set → controller (@AuthenticationPrincipal Jwt)
+        H-->>C: response (or 403 if @PreAuthorize role check fails)
+    end
 ```
 
-The filter is registered **only** inside the Spring Security chain (a disabled
-`FilterRegistrationBean` stops Spring Boot from also wiring it up as a global
-servlet filter, which would otherwise run it twice). See
-[SECURITY.md](SECURITY.md) for the details.
+All of this is Spring Security's built-in **OAuth2 resource server**, configured
+in `SecurityConfig`; there is no custom filter. The token alone is enough: no
+database lookup happens before the controller. `MeController` reads the user id
+from the token's `sub` claim. See [SECURITY.md](SECURITY.md) for the details.
 
 > Want the *fully detailed* call graph — every hop from controller through
 > service to repository and database, the bean dependency graph and the filter
@@ -189,3 +201,33 @@ access token expires on its own within 15 minutes.
 > Next.js Server Actions on the web, versus the OS keystore on mobile (which
 > reads the `Set-Cookie` header and replays it as a `Cookie:` header). The Redux/
 > RTK Query layer, the Zod schemas and the screens are otherwise near-identical.
+
+---
+
+## 7. Verifying AuthKit tokens in another service (JWKS)
+
+Other services never receive the private key and never ask AuthKit whether a
+token is valid. They fetch the **public** key once and verify every token
+locally.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as Client
+    participant A as AuthKit
+    participant S as Other service
+
+    S->>A: GET /api/v1/.well-known/jwks.json (on first use, then cached)
+    A-->>S: { keys: [ { kty: RSA, alg: RS256, use: sig, n, e } ] }
+    U->>A: POST /api/v1/auth/sign-in
+    A-->>U: accessTk (signed with the private key)
+    U->>S: request with Authorization: Bearer <accessTk>
+    S->>S: verify signature with the cached public key,<br/>exp, and type_tk == ACCESS
+    S-->>U: response (or 401)
+```
+
+In a Spring service this is one property, `spring.security.oauth2.resourceserver.jwt.jwk-set-uri`,
+pointing at the JWKS URL, plus the `type_tk == ACCESS` validator (see
+[SECURITY.md](SECURITY.md)). The integration test
+`BackendApplicationTests#shouldVerifyAccessTkWithPublishedJwks` plays exactly
+this role.

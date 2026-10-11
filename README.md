@@ -78,6 +78,9 @@ between them (or running both) is straightforward. See
 ## 🚀 Quick start (the 60-second version)
 
 ```bash
+# 0. Create the JWT signing keys (once after cloning; never overwrites)
+scripts/generate-jwt-keys.sh
+
 # 1. Start the database + backend (+ a mirrored Swagger UI)
 docker compose up -d
 
@@ -108,7 +111,7 @@ Open the web app at **http://localhost:3000** (or launch the mobile app), regist
 > cloud build needed. See
 > [apps/mobile/README.md](apps/mobile/README.md#-install-the-dev-client-on-your-phone-one-time-only).
 
-> No configuration needed: every value has a sensible default. See [docs/RUNNING.md](docs/RUNNING.md) for all the variations (full Docker, manual dev, individual services).
+> No configuration needed: every value has a sensible default. Only the JWT keys are created per clone (step 0; when you run the backend without Docker it creates them itself). See [docs/RUNNING.md](docs/RUNNING.md) for all the variations (full Docker, manual dev, individual services) and for [production keys](docs/RUNNING.md#jwt-keys).
 
 ---
 

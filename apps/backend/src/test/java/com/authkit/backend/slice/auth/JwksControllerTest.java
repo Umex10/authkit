@@ -49,6 +49,7 @@ public class JwksControllerTest {
 				.andExpect(jsonPath("$.keys[0].alg").value("RS256"))
 				.andExpect(jsonPath("$.keys[0].n").isNotEmpty())
 				.andExpect(jsonPath("$.keys[0].e").value("AQAB"))
-				.andExpect(jsonPath("$.keys[0].d").doesNotExist()); // "d" is the private exponent: it must never be published
+				// "d" is the private exponent: it must never be published
+				.andExpect(jsonPath("$.keys[0].d").doesNotExist());
 	}
 }

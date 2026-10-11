@@ -8,38 +8,40 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.Base64;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 
-import com.authkit.backend.auth.config.KeyConfig;
+import com.authkit.backend.auth.config.RsaKeyFiles;
 import com.authkit.backend.utils.TestKeys;
 
 /**
- * Unit tests for {@link KeyConfig}.
+ * Unit tests for {@link RsaKeyFiles}, which {@code KeyConfig} uses to read the
+ * key files.
  *
  * <p>
- * No Spring context and no key files: the PEM text is built in memory from the
- * key pair of {@link TestKeys} and handed over as a {@link ByteArrayResource}.
+ * No Spring context: the PEM text is built in memory from the key pair of
+ * {@link TestKeys} and handed over as a {@link ByteArrayResource}; only the
+ * round trip test writes real files, into a temporary folder.
  * The happy path compares the parsed key with the original, so it checks that
  * the right key comes out and not only that the code runs. The error paths
  * check that a bad key source stops the start-up with a clear message.
  */
-public class KeyConfigTest {
-
-	private final KeyConfig keyConfig = new KeyConfig();
+public class RsaKeyFilesTest {
 
 	/** The PEM private key is parsed into exactly the key it was built from. */
 	@Test
 	void shouldReadPrivateKey() {
 		Resource pem = pem("PRIVATE", TestKeys.privateKey().getEncoded());
 
-		RSAPrivateKey key = keyConfig.privateKey(pem);
+		RSAPrivateKey key = RsaKeyFiles.readPrivateKey(pem);
 
 		assertArrayEquals(TestKeys.privateKey().getEncoded(), key.getEncoded());
 	}
@@ -49,7 +51,7 @@ public class KeyConfigTest {
 	void shouldReadPublicKey() {
 		Resource pem = pem("PUBLIC", TestKeys.publicKey().getEncoded());
 
-		RSAPublicKey key = keyConfig.publicKey(pem);
+		RSAPublicKey key = RsaKeyFiles.readPublicKey(pem);
 
 		assertArrayEquals(TestKeys.publicKey().getEncoded(), key.getEncoded());
 	}
@@ -58,7 +60,7 @@ public class KeyConfigTest {
 	@Test
 	void shouldRejectPrivateKeyThatIsNotBase64() {
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
-				() -> keyConfig.privateKey(text("this is no key!!")));
+				() -> RsaKeyFiles.readPrivateKey(text("this is no key!!")));
 
 		assertTrue(ex.getMessage().startsWith("Cannot read the JWT private key"));
 		assertInstanceOf(IllegalArgumentException.class, ex.getCause());
@@ -68,7 +70,7 @@ public class KeyConfigTest {
 	@Test
 	void shouldRejectPrivateKeyWithInvalidKeyBytes() {
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
-				() -> keyConfig.privateKey(pem("PRIVATE", new byte[] { 1, 2, 3 })));
+				() -> RsaKeyFiles.readPrivateKey(pem("PRIVATE", new byte[] { 1, 2, 3 })));
 
 		assertTrue(ex.getMessage().startsWith("Cannot read the JWT private key"));
 		assertInstanceOf(GeneralSecurityException.class, ex.getCause());
@@ -78,7 +80,7 @@ public class KeyConfigTest {
 	@Test
 	void shouldRejectUnreadablePrivateKey() {
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
-				() -> keyConfig.privateKey(unreadable()));
+				() -> RsaKeyFiles.readPrivateKey(unreadable()));
 
 		assertTrue(ex.getMessage().startsWith("Cannot read the JWT private key"));
 		assertInstanceOf(IOException.class, ex.getCause());
@@ -88,7 +90,7 @@ public class KeyConfigTest {
 	@Test
 	void shouldRejectPublicKeyThatIsNotBase64() {
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
-				() -> keyConfig.publicKey(text("this is no key!!")));
+				() -> RsaKeyFiles.readPublicKey(text("this is no key!!")));
 
 		assertTrue(ex.getMessage().startsWith("Cannot read the JWT public key"));
 		assertInstanceOf(IllegalArgumentException.class, ex.getCause());
@@ -98,7 +100,7 @@ public class KeyConfigTest {
 	@Test
 	void shouldRejectPublicKeyWithInvalidKeyBytes() {
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
-				() -> keyConfig.publicKey(pem("PUBLIC", new byte[] { 1, 2, 3 })));
+				() -> RsaKeyFiles.readPublicKey(pem("PUBLIC", new byte[] { 1, 2, 3 })));
 
 		assertTrue(ex.getMessage().startsWith("Cannot read the JWT public key"));
 		assertInstanceOf(GeneralSecurityException.class, ex.getCause());
@@ -108,7 +110,7 @@ public class KeyConfigTest {
 	@Test
 	void shouldRejectUnreadablePublicKey() {
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
-				() -> keyConfig.publicKey(unreadable()));
+				() -> RsaKeyFiles.readPublicKey(unreadable()));
 
 		assertTrue(ex.getMessage().startsWith("Cannot read the JWT public key"));
 		assertInstanceOf(IOException.class, ex.getCause());
@@ -119,15 +121,31 @@ public class KeyConfigTest {
 	void shouldNameTheResourceInTheErrorMessage() {
 		Resource broken = new ByteArrayResource("x".getBytes(StandardCharsets.UTF_8), "classpath:keys/public.pem");
 
-		IllegalStateException ex = assertThrows(IllegalStateException.class, () -> keyConfig.publicKey(broken));
+		IllegalStateException ex = assertThrows(IllegalStateException.class, () -> RsaKeyFiles.readPublicKey(broken));
 
 		assertTrue(ex.getMessage().contains("classpath:keys/public.pem"));
 	}
 
-	/** Builds PEM text ({@code BEGIN/END <label> KEY}, Base64 body in 64-character lines). */
+	/**
+	 * What {@link RsaKeyFiles#write} puts on disk is read back as the same keys,
+	 * so the startup generator and {@code KeyConfig} agree on the file format.
+	 */
+	@Test
+	void shouldReadBackTheKeysItWrote(@TempDir Path dir) {
+		Path privateFile = dir.resolve("keys/private.pem");
+		Path publicFile = dir.resolve("keys/public.pem");
+
+		RsaKeyFiles.write(TestKeys.PAIR, privateFile, publicFile);
+
+		assertArrayEquals(TestKeys.privateKey().getEncoded(),
+				RsaKeyFiles.readPrivateKey(new FileSystemResource(privateFile)).getEncoded());
+		assertArrayEquals(TestKeys.publicKey().getEncoded(),
+				RsaKeyFiles.readPublicKey(new FileSystemResource(publicFile)).getEncoded());
+	}
+
+	/** PEM text from {@link RsaKeyFiles#pem(String, byte[])} as an in-memory {@link Resource}. */
 	private static Resource pem(String label, byte[] encodedKey) {
-		String body = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.UTF_8)).encodeToString(encodedKey);
-		return text("-----BEGIN " + label + " KEY-----\n" + body + "\n-----END " + label + " KEY-----\n");
+		return text(RsaKeyFiles.pem(label, encodedKey));
 	}
 
 	/** Wraps plain text as an in-memory {@link Resource}. */

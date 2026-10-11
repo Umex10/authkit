@@ -17,6 +17,7 @@ import com.authkit.backend.common.entities.User;
 import com.authkit.backend.common.repositories.UserRepository;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import jakarta.persistence.EntityNotFoundException;
@@ -147,11 +148,18 @@ public class JwtService {
 	 *                                      the signature is invalid
 	 */
 	private String extractUserId(String refreshTk) {
-		Claims claims = Jwts.parserBuilder()
-				.setSigningKey(publicKey)
-				.build()
-				.parseClaimsJws(refreshTk)
-				.getBody();
+		Claims claims;
+		try {
+			claims = Jwts.parserBuilder()
+					.setSigningKey(publicKey)
+					.build()
+					.parseClaimsJws(refreshTk)
+					.getBody();
+		} catch (JwtException | IllegalArgumentException ex) {
+			// Wrong signature, expired, malformed: a client error, not a server error.
+			// As an AuthenticationException it becomes a 401 instead of the catch-all 500.
+			throw new BadCredentialsException("Invalid refresh token", ex);
+		}
 
 		if (!TkName.REFRESH.name().equals(claims.get("type_tk", String.class))) {
 			throw new BadCredentialsException("Not a refresh token");

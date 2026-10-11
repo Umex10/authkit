@@ -67,4 +67,23 @@ public final class TestDataFactory {
 				.password("ClearPassword")
 				.build();
 	}
+
+	/** A valid sign-up payload for an admin, matching {@link #createAdminUser()}. */
+	public static SignUpAccountRequestDto createAdminSignUpDto() {
+		return SignUpAccountRequestDto.builder()
+				.name("Ada Admin")
+				.email("admin@mail.com")
+				.phone("+43987654321")
+				.password("AdminPassword")
+				.role(Role.ADMIN)
+				.build();
+	}
+
+	/** A valid sign-in payload matching {@link #createAdminSignUpDto()}. */
+	public static SignInAccountRequestDto createAdminSignInDto() {
+		return SignInAccountRequestDto.builder()
+				.email("admin@mail.com")
+				.password("AdminPassword")
+				.build();
+	}
 }

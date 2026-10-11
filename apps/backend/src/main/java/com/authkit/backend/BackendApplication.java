@@ -3,6 +3,8 @@ package com.authkit.backend;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import com.authkit.backend.auth.config.DevKeyGenerator;
+
 /**
  * Entry point of the AuthKit authentication microservice.
  *
@@ -14,7 +16,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class BackendApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(BackendApplication.class, args);
+		SpringApplication app = new SpringApplication(BackendApplication.class);
+		// Creates the JWT keys on the first start after a clone (see DevKeyGenerator).
+		app.addListeners(new DevKeyGenerator());
+		app.run(args);
 	}
 
 }

@@ -19,17 +19,26 @@ flowchart TD
     subgraph web["Web layer (controllers)"]
         AC["AuthController<br/>/auth/**"]
         MC["MeController<br/>/me, /admin/**"]
+        JC["JwksController<br/>/.well-known/jwks.json"]
         GEH["GlobalExceptionHandler<br/>@RestControllerAdvice"]
     end
 
     subgraph service["Service layer"]
         AS["AuthService"]
-        JS["JwtService"]
+        JS["JwtService<br/>signs + reads tokens"]
+    end
+
+    subgraph keys["Keys"]
+        KC["KeyConfig<br/>(@Bean factory)"]
+        RKF["RsaKeyFiles<br/>PEM read / write"]
+        PRIV["RSAPrivateKey"]
+        PUB["RSAPublicKey"]
     end
 
     subgraph security["Security layer"]
         SC["SecurityConfig<br/>(@Bean factory)"]
-        JAF["JwtAuthFilter"]
+        JD["JwtDecoder<br/>(Nimbus, RS256)"]
+        JAC["JwtAuthenticationConverter<br/>roles → ROLE_*"]
         CUDS["CustomUserDetailsService<br/>implements UserDetailsService"]
         CUD["CustomUserDetails<br/>implements UserDetails"]
         AM["AuthenticationManager<br/>(Spring bean)"]
@@ -44,22 +53,29 @@ flowchart TD
     AC --> AS
     AC --> JS
     MC --> UR
+    JC --> PUB
 
     AS --> UR
     AS --> PE
     AS --> AM
-    AS --> CUDS
 
-    JS --> CUDS
+    JS --> PRIV
+    JS --> PUB
+    JS --> UR
 
-    JAF --> JS
+    KC -. "uses" .-> RKF
+    KC -. "builds" .-> PRIV
+    KC -. "builds" .-> PUB
+
+    JD --> PUB
     CUDS --> UR
     CUDS -. "creates" .-> CUD
     AM -. "delegates to" .-> CUDS
     AM -. "verifies with" .-> PE
 
-    SC -. "builds" .-> JAF
-    SC -. "builds" .-> AM
+    SC -. "builds" .-> JD
+    SC -. "builds" .-> JAC
+    SC -. "exposes" .-> AM
     SC -. "builds" .-> PE
 
     UR --> DB
@@ -70,22 +86,28 @@ flowchart TD
 ```
 
 > `UserDetailsService` is an interface; the concrete bean is
-> `CustomUserDetailsService`. `AuthService`, `JwtService` and the Spring
-> `AuthenticationManager` all resolve to it.
+> `CustomUserDetailsService`. It is only used for the **password check on
+> sign-in** (through the `AuthenticationManager`). Requests with a bearer token
+> never touch it: the `JwtDecoder` verifies the token on its own.
+>
+> On startup, before any bean exists, `DevKeyGenerator` writes a dev key pair
+> through `RsaKeyFiles` when no key files are there yet (local runs only; see
+> [RUNNING.md](RUNNING.md#jwt-keys)).
 
 ---
 
 ## 1. The security filter chain (runs before every controller)
 
 Order of the filters in the one `SecurityFilterChain` built by `SecurityConfig`.
-`JwtAuthFilter` is inserted just before `UsernamePasswordAuthenticationFilter`.
+There is no custom filter: `.oauth2ResourceServer(...)` adds Spring's
+`BearerTokenAuthenticationFilter`.
 
 ```mermaid
 flowchart LR
     R["request"] --> SCHF["SecurityContextHolderFilter"]
     SCHF --> CORS["CorsFilter"]
-    CORS --> JAF["JwtAuthFilter ⭐"]
-    JAF --> AAF["AnonymousAuthenticationFilter"]
+    CORS --> BTAF["BearerTokenAuthenticationFilter ⭐<br/>JwtDecoder + JwtAuthenticationConverter"]
+    BTAF --> AAF["AnonymousAuthenticationFilter"]
     AAF --> AZF["AuthorizationFilter<br/>(checks the route rules)"]
     AZF --> DS["DispatcherServlet → controller"]
 ```
@@ -96,12 +118,14 @@ Route rules (from `SecurityConfig.securityFilterChain`):
 |---------|------|
 | `OPTIONS /**` | permit all (CORS pre-flight) |
 | `/auth/**` | permit all (public) |
+| `/.well-known/jwks.json` | permit all (public key for other services) |
 | `/swagger-ui/**`, `/v3/api-docs/**` | permit all |
 | everything else | `authenticated()` |
 
-> `JwtAuthFilter` is registered **only** inside this chain. A disabled
-> `FilterRegistrationBean<JwtAuthFilter>` in `SecurityConfig` prevents Spring Boot
-> from *also* registering it as a global servlet filter (which would run it twice).
+> A request **without** a token simply passes `BearerTokenAuthenticationFilter`
+> and is rejected by the `AuthorizationFilter` on protected routes (401). A
+> request with an **invalid** token is rejected by the filter itself (401 with
+> `WWW-Authenticate: Bearer error="invalid_token"`).
 
 ---
 
@@ -140,10 +164,10 @@ sequenceDiagram
         UR->>DB: INSERT INTO users …
         DB-->>AS: persisted User (with generated UUID)
         AS-->>AC: User
-        AC->>JS: createAccessTk(email)
-        JS-->>AC: access JWT (15 min)
-        AC->>JS: createRefreshTk(email)
-        JS-->>AC: refresh JWT (30 days)
+        AC->>JS: createAccessTk(user)
+        JS-->>AC: access JWT (15 min, RS256)
+        AC->>JS: createRefreshTk(user)
+        JS-->>AC: refresh JWT (30 days, RS256)
         Note over AC: adds Cookie refresh_tk (HttpOnly, Path=/, 30d)
         AC-->>C: 201 { accessTk, expiresIn:900 } + Set-Cookie: refresh_tk
     end
@@ -153,9 +177,10 @@ sequenceDiagram
 
 ## 3. `POST /auth/sign-in`
 
-Note the two-step authentication: the `AuthenticationManager` verifies the
-credentials (which itself loads the user + checks the password), and then
-`AuthService` loads the `UserDetails` again to return it.
+Note the two steps: the `AuthenticationManager` verifies the credentials (it
+loads the user through `CustomUserDetailsService` and checks the password), and
+then `AuthService` loads the `User` entity again, because the tokens need its id
+and role.
 
 ```mermaid
 sequenceDiagram
@@ -178,7 +203,7 @@ sequenceDiagram
     CUDS->>UR: findByEmail(email)
     UR->>DB: SELECT … WHERE email = ?
     DB-->>CUDS: User
-    CUDS-->>AM: CustomUserDetails (authorities: ROLE_USER/ROLE_ADMIN)
+    CUDS-->>AM: CustomUserDetails
     AM->>PE: matches(rawPassword, storedHash)
 
     alt bad credentials / unknown user
@@ -186,21 +211,19 @@ sequenceDiagram
         GEH-->>C: 401 ApiError { message:"The credentials are incorrect." }
     else ok
         AM-->>AS: Authentication (authenticated)
-        AS->>CUDS: loadUserByUsername(email)  ⟵ second load
-        CUDS->>UR: findByEmail(email)
+        AS->>UR: findByEmail(email)  ⟵ second load
         UR->>DB: SELECT …
-        DB-->>AS: CustomUserDetails
-        AS-->>AC: UserDetails
-        AC->>JS: createAccessTk(email)
-        AC->>JS: createRefreshTk(email)
+        DB-->>AS: User
+        AS-->>AC: User
+        AC->>JS: createAccessTk(user)
+        AC->>JS: createRefreshTk(user)
         AC-->>C: 200 { accessTk, expiresIn:900 } + Set-Cookie: refresh_tk
     end
 ```
 
-> **Detail worth knowing:** `loadUserByUsername` runs **twice** on sign-in — once
-> inside the `AuthenticationManager` and once explicitly in `AuthService`. It's
-> correct, just a minor optimization opportunity (the manager already returns the
-> authenticated principal you could reuse).
+> **Detail worth knowing:** the user is loaded **twice** on sign-in — once
+> inside the `AuthenticationManager` and once in `AuthService`. It's correct,
+> just a minor optimization opportunity.
 
 ---
 
@@ -212,7 +235,6 @@ sequenceDiagram
     participant C as Client
     participant AC as AuthController
     participant JS as JwtService
-    participant CUDS as CustomUserDetailsService
     participant UR as UserRepository
     participant DB as PostgreSQL
 
@@ -224,59 +246,63 @@ sequenceDiagram
         AC-->>C: 401 "The refresh token is missing"
     else present
         JS-->>AC: refreshTk
-        AC->>JS: validateTk(refreshTk)
-        JS->>JS: extractEmail(tk) — parse + verify HS256 signature
-        JS->>CUDS: loadUserByUsername(email)
-        CUDS->>UR: findByEmail(email)
-        UR->>DB: SELECT …
-        DB-->>JS: CustomUserDetails
-        JS-->>AC: UserDetails
-        AC->>JS: createAccessTk(username)
+        AC->>JS: validateRefreshTk(refreshTk)
+        Note over JS: verify RS256 signature with the public key,<br/>check exp and type_tk == REFRESH
+        JS->>UR: findById(subject)
+        UR->>DB: SELECT … WHERE id = ?
+        DB-->>JS: User
+        JS-->>AC: User
+        AC->>JS: createAccessTk(user)
         AC-->>C: 200 { accessTk, expiresIn:900 }  (refresh cookie NOT rotated)
     end
 ```
+
+> Any invalid refresh cookie → **401** "The credentials are incorrect.": an
+> access token sent as refresh cookie fails the `type_tk` check, and a broken
+> signature, an expired or a malformed token is turned into a
+> `BadCredentialsException` inside `JwtService` (handled like a wrong password).
 
 ---
 
 ## 5. `GET /me` (protected route — the full chain)
 
-This shows the filter authenticating the request *and* the controller handling it.
+The resource server authenticates the request from the token alone; the
+controller then loads the user by the id in the token's `sub` claim.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant C as Client
-    participant JAF as JwtAuthFilter
-    participant JS as JwtService
-    participant CUDS as CustomUserDetailsService
-    participant UR as UserRepository
+    participant BTAF as BearerTokenAuthenticationFilter
+    participant JD as JwtDecoder
+    participant JAC as JwtAuthenticationConverter
     participant SCH as SecurityContextHolder
     participant MC as MeController
+    participant UR as UserRepository
     participant DB as PostgreSQL
+    participant GEH as GlobalExceptionHandler
 
-    C->>JAF: GET /me (Authorization: Bearer <accessTk>)
-    JAF->>JS: extractAccessTk(request)
-    JS-->>JAF: token (or null)
-    alt token present & valid
-        JAF->>JS: validateTk(token)
-        JS->>JS: extractEmail(token) — verify signature
-        JS->>CUDS: loadUserByUsername(email)
-        CUDS->>UR: findByEmail(email)
-        UR->>DB: SELECT …
-        DB-->>CUDS: User
-        CUDS-->>JS: CustomUserDetails
-        JS-->>JAF: UserDetails
-        JAF->>SCH: setAuthentication(UsernamePasswordAuthenticationToken)
-        JAF->>JAF: request.setAttribute("userId", customUserDetails.getId())
-    else token missing/invalid
-        Note over JAF: no authentication set → AuthorizationFilter rejects → 403
+    C->>BTAF: GET /me (Authorization: Bearer <accessTk>)
+    BTAF->>JD: decode(accessTk)
+    Note over JD: RS256 signature (public key),<br/>exp / nbf, type_tk == ACCESS
+    alt token invalid / expired / refresh token
+        JD-->>C: 401 WWW-Authenticate: Bearer error="invalid_token"
+    else valid
+        JD-->>BTAF: Jwt
+        BTAF->>JAC: convert(jwt) → roles claim → ROLE_*
+        BTAF->>SCH: setAuthentication(JwtAuthenticationToken)
+        BTAF->>MC: continue chain → me(@AuthenticationPrincipal Jwt)
+        MC->>UR: findById(UUID.fromString(jwt.getSubject()))
+        UR->>DB: SELECT … WHERE id = ?
+        alt user deleted meanwhile
+            MC->>GEH: throw EntityNotFoundException
+            GEH-->>C: 404 ErrorResponse
+        else found
+            DB-->>MC: User
+            MC->>MC: UserResponseDto.from(user)  (drops the password)
+            MC-->>C: 200 { name, email, phone, role }
+        end
     end
-    JAF->>MC: continue chain → me(@RequestAttribute userId)
-    MC->>UR: findById(userId)
-    UR->>DB: SELECT … WHERE id = ?
-    DB-->>MC: User
-    MC->>MC: UserResponseDto.from(user)  (drops the password)
-    MC-->>C: 200 { name, email, phone, role }
 ```
 
 ---
@@ -287,14 +313,14 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant C as Client
-    participant JAF as JwtAuthFilter
+    participant BTAF as BearerTokenAuthenticationFilter
     participant MSI as "@PreAuthorize interceptor"
     participant MC as MeController
     participant GEH as GlobalExceptionHandler
 
-    C->>JAF: GET /admin/ping (Bearer accessTk)
-    Note over JAF: authenticates as in §5,<br/>authorities = ROLE_USER or ROLE_ADMIN
-    JAF->>MSI: invoke MeController.adminPing()
+    C->>BTAF: GET /admin/ping (Bearer accessTk)
+    Note over BTAF: authenticates as in §5,<br/>authorities from the roles claim = ROLE_USER or ROLE_ADMIN
+    BTAF->>MSI: invoke MeController.adminPing()
     Note over MSI: @PreAuthorize("hasRole('ADMIN')")
     alt role is ADMIN
         MSI->>MC: proceed
@@ -313,9 +339,12 @@ sequenceDiagram
 |---------|-------|------|
 | Public auth endpoints | `AuthController` | `auth/AuthController.java` |
 | Sign-up rules + credential check | `AuthService` | `auth/AuthService.java` |
-| JWT create/parse/extract | `JwtService` | `auth/JwtService.java` |
-| Per-request auth | `JwtAuthFilter` | `auth/security/JwtAuthFilter.java` |
-| Spring Security wiring | `SecurityConfig` | `auth/security/config/SecurityConfig.java` |
+| JWT create (RS256) + refresh-token check | `JwtService` | `auth/JwtService.java` |
+| Per-request auth (JwtDecoder, roles converter) | `SecurityConfig` | `auth/security/config/SecurityConfig.java` |
+| Key pair as beans | `KeyConfig` | `auth/config/KeyConfig.java` |
+| PEM key files: read, write, generate | `RsaKeyFiles` | `auth/config/RsaKeyFiles.java` |
+| Dev key pair on first start | `DevKeyGenerator` | `auth/config/DevKeyGenerator.java` |
+| Public key for other services | `JwksController` | `auth/JwksController.java` |
 | Principal lookup | `CustomUserDetailsService` | `auth/security/CustomUserDetailsService.java` |
 | `User` → `UserDetails` adapter | `CustomUserDetails` | `auth/security/CustomUserDetails.java` |
 | Protected example routes | `MeController` | `user/MeController.java` |
