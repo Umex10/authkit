@@ -53,7 +53,10 @@ export default function DashboardPage() {
 
       {/* The authenticated user, straight from the protected /me endpoint. */}
       {user && (
-        <div className="w-full max-w-md rounded-xl border border-border bg-card p-6">
+        <div
+          data-testid="dashboard-account"
+          className="w-full max-w-md rounded-xl border border-border bg-card p-6"
+        >
           <h2 className="mb-4 text-sm font-semibold text-muted-foreground">
             Your account (via <code>GET /me</code>)
           </h2>

@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -13,20 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/loader";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useHydrated } from "@/lib/use-hydrated";
 import { AuthTips } from "@/components/AuthTips";
 import { useSignInMutation } from "@/redux/api/apis/auth";
-
-/**
- * Validation rules for the sign-in form. The email check stays loose (any valid
- * address) so the backend remains the source of truth for unknown accounts.
- */
-const signInSchema = z.object({
-  email: z.string().email("Please enter a valid email address."),
-  password: z.string().min(1, "Password is required."),
-});
-
-/** Form values inferred from {@link signInSchema}; shared with `signInAction`. */
-export type SignInFormValues = z.infer<typeof signInSchema>;
+import { signInSchema, type SignInFormValues } from "@/lib/validation";
+import type { ApiErrorBody } from "@/types/ApiError";
 
 /**
  * Sign-in page at `/sign-in`. Wires a Zod-validated react-hook-form to the
@@ -36,6 +26,7 @@ export type SignInFormValues = z.infer<typeof signInSchema>;
 export default function SignInPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const hydrated = useHydrated();
   const [signIn, { isLoading: isSigningIn }] = useSignInMutation();
 
   const form = useForm<SignInFormValues>({
@@ -54,8 +45,8 @@ export default function SignInPage() {
         className: "toast-success",
       });
       router.push("/dashboard");
-    } catch (error: any) {
-      const message = error?.message || "Sign-in failed.";
+    } catch (error) {
+      const message = (error as ApiErrorBody)?.message || "Sign-in failed.";
       toast.error(message, { id: toastId, className: "toast-error" });
     }
   };
@@ -84,7 +75,17 @@ export default function SignInPage() {
             </p>
           </div>
 
+          <Suspense fallback={null}>
+            <SessionExpiredNote />
+          </Suspense>
+
+          {/* method="post": should the browser ever submit the form itself, the
+              password goes into the request body, never into the URL.
+              noValidate: the Zod messages below the fields replace the
+              browser's own bubbles (which would also block the submit event). */}
           <form
+            method="post"
+            noValidate
             className="flex flex-col gap-5"
             onSubmit={form.handleSubmit(onSubmit)}
           >
@@ -155,7 +156,7 @@ export default function SignInPage() {
             <Button
               type="submit"
               data-testid="sign-in-submit-button"
-              disabled={isSigningIn}
+              disabled={!hydrated || isSigningIn}
               className="mt-1 h-auto w-full rounded-xl py-3 text-sm font-semibold"
             >
               {isSigningIn ? "Signing in …" : "Sign in"}
@@ -177,6 +178,26 @@ export default function SignInPage() {
 
       {/* Tips panel (desktop only) */}
       <AuthTips variant="sign-in" />
+    </div>
+  );
+}
+
+/**
+ * Shown when the dashboard sent the user here because their session could not
+ * be renewed (refresh cookie expired, signed with an old key, or the account is
+ * gone). The stale cookie has already been removed, so signing in again works.
+ */
+function SessionExpiredNote() {
+  const expired = useSearchParams().get("session") === "expired";
+  if (!expired) return null;
+
+  return (
+    <div
+      role="status"
+      data-testid="sign-in-session-expired-note"
+      className="mb-6 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground"
+    >
+      Your session has expired. Please sign in again.
     </div>
   );
 }

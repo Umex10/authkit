@@ -11,7 +11,8 @@
  * Nothing else in the app depends on it.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useHydrated } from "@/lib/use-hydrated";
 
 const CONFETTI_COLORS = [
   "#7c3aed",
@@ -38,15 +39,14 @@ function pseudoRandom(seed: number) {
 }
 
 export function Celebration() {
-  // Render confetti only after mount to avoid any SSR/CSR mismatch.
-  const [mounted, setMounted] = useState(false);
-  const [subtitle, setSubtitle] = useState(SUBTITLES[0]);
-
-  useEffect(() => {
-    setMounted(true);
-    // Pick a random goofy line on the client.
-    setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
-  }, []);
+  // true in the browser, false during server rendering: confetti and the random
+  // line are client-only, so server and client HTML always match.
+  const mounted = useHydrated();
+  // Picked once per mount, not on every render.
+  const [randomLine] = useState(
+    () => SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)],
+  );
+  const subtitle = mounted ? randomLine : SUBTITLES[0];
 
   return (
     <div className="ak-pop-in flex flex-col items-center gap-3 text-center">
