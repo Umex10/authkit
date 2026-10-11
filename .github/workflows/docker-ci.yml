@@ -8,8 +8,8 @@ on:
     # main is handled by the publish workflow.
     branches-ignore:
       - main
-    # Only run when something the image depends on changes (not apps/web or
-    # apps/mobile). "**" matches every file in every subfolder.
+    # Only run when something the image depends on changes (not apps/web).
+    # "**" matches every file in every subfolder.
     paths:
       - "apps/backend/**"
       - ".github/workflows/docker-ci.yml"
