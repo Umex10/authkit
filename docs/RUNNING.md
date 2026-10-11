@@ -20,6 +20,7 @@ included and every config value has a built-in default.
 
 ```bash
 # from the repo root
+scripts/generate-jwt-keys.sh    # once after cloning, see "JWT keys" below
 docker compose up -d            # Postgres + backend + Swagger UI mirror
 
 cd apps/web
@@ -37,7 +38,7 @@ Open http://localhost:3000 and register.
 # 1. Just the database
 docker compose up -d db
 
-# 2. The backend (hot-reload via Spring DevTools)
+# 2. The backend (hot-reload via Spring DevTools; creates dev JWT keys on first start)
 cd apps/backend
 ./mvnw spring-boot:run          # http://localhost:8080/api/v1
 
@@ -52,6 +53,7 @@ npm run dev                     # http://localhost:3000
 ## Option C — Full Docker (no local Node/Java at all for the API)
 
 ```bash
+scripts/generate-jwt-keys.sh    # once after cloning, see "JWT keys" below
 docker compose up --build
 ```
 
@@ -134,18 +136,40 @@ Everything has a default, so you only set these to override.
 |----------|---------|---------|
 | `JWT_PRIVATE_KEY_LOCATION` | `file:./keys/private.pem` | RSA private key (PKCS#8 PEM) that signs the tokens (RS256). Keep it secret. |
 | `JWT_PUBLIC_KEY_LOCATION` | `file:./keys/public.pem` | Matching public key (PEM). Verifies tokens and is published at `/.well-known/jwks.json`. |
+| `JWT_GENERATE_MISSING_KEYS` | `true` (`false` in the Docker image) | Create a dev key pair on startup when neither key file exists. |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/authkit` | JDBC URL |
 | `DB_USER` / `DB_PASSWORD` | `authkit` / `authkit` | DB credentials |
 | `FRONTEND_URL` | `http://localhost:3000` | Allowed CORS origin(s), comma-separated, wildcards ok |
 
-The backend does not start without the key pair, and the repository contains no
-keys (`keys/` is git-ignored). Generate a pair once, from `apps/backend`:
+### JWT keys
 
-```bash
-mkdir -p keys
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out keys/private.pem
-openssl pkey -in keys/private.pem -pubout -out keys/public.pem
-```
+The repository contains no keys (`keys/` is git-ignored). How you get them
+depends on how you run the backend:
+
+- **Directly (`./mvnw spring-boot:run`):** nothing to do. On the first start the
+  backend sees that neither key file exists and writes a fresh dev pair to
+  `apps/backend/keys/` (a warning in the log tells you so).
+- **With Docker (`docker compose up`):** the container never generates keys, it
+  mounts `apps/backend/keys/`. Create the pair once before the first start:
+
+  ```bash
+  scripts/generate-jwt-keys.sh
+  ```
+
+  The script never overwrites existing keys. It needs only `openssl` (on Windows
+  use Git Bash or WSL).
+
+These are **dev keys**: readable by everyone on your machine (the container runs
+as another user and must read them) and meant only for local tokens.
+
+**Production:** generate a separate pair, e.g. `scripts/generate-jwt-keys.sh
+<folder outside the repo>`, store both files as a secret (Docker/Kubernetes
+secret, cloud key vault) and let the platform mount them as files into the
+container. Point `JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` at
+these files (e.g. `file:/run/secrets/jwt-private.pem`) and make sure the
+container user (`authkit`, uid 1001) can read them. The image never generates
+keys (`JWT_GENERATE_MISSING_KEYS=false`), so missing or unreadable keys stop the
+backend at startup with an error that names the path. Never reuse the dev keys.
 
 ### Web frontend (`apps/web`)
 
