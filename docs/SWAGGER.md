@@ -20,7 +20,7 @@ protected route.
 
 1. **Create an account** — expand `POST /auth/sign-up`, *Try it out*, send a body like:
    ```json
-   { "name": "Ada", "email": "ada@example.com", "phone": "+431234567890", "password": "secret123", "role": "USER" }
+   { "name": "Ada", "email": "ada@example.com", "phone": "+431234567890", "password": "secret123" }
    ```
    (If the email is already taken you'll get a 400 — just sign in instead.)
 2. **Sign in** — `POST /auth/sign-in` with the same email/password. Copy the

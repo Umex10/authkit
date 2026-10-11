@@ -1,14 +1,13 @@
 # Testing
 
-AuthKit has test layers across the backend and both frontends. All of them pass
+AuthKit has test layers across the backend and the web app. All of them pass
 out of the box.
 
 | Layer | Tool | Location | What it proves |
 |-------|------|----------|----------------|
 | Backend unit, slice + integration | JUnit 5, Mockito, MockMvc, Spring Security Test | `apps/backend/src/test` | Token logic, key loading, sign-up rules, the auth endpoints, token verification, role-based access, the JWKS endpoint |
-| Web unit | Vitest + Testing Library | `apps/web/__tests__/unit` | Pure helpers and components render correctly |
+| Web unit | Vitest + Testing Library | `apps/web/__tests__/unit` | Form rules, cookie parsing, route gate (`proxy.ts`), access-token renewal, components |
 | Web end-to-end | Playwright (Chromium) | `apps/web/__tests__/e2e` | The real browser flow against the real backend + database |
-| Mobile unit | Jest (`jest-expo`) + React Native Testing Library | `apps/mobile/__tests__` | Pure helpers and RN components (Button, Select) behave correctly |
 
 ---
 
@@ -55,7 +54,7 @@ rejects refresh tokens.
 
 ---
 
-## Frontend unit tests
+## Web unit tests
 
 ```bash
 cd apps/web
@@ -63,36 +62,22 @@ npm run test:unit          # one-shot
 npm run test:unit:watch    # watch mode
 ```
 
-Fast jsdom tests — no servers needed.
+Fast tests without servers or a browser:
+- `validation.test.ts`: the sign-up/sign-in rules (8-character password, trimmed email, terms, no role field)
+- `refresh-cookie.test.ts`: reading the refresh token from the backend's `Set-Cookie` headers
+- `proxy.test.ts`: which route redirects where, with and without the refresh cookie
+- `reauth.test.ts`: an expired access token is renewed once and the request repeated; a rejected renewal gives up
+- `utils`, `AuthTips`, `Celebration`: small helpers and components
 
----
-
-## Mobile unit tests
-
-```bash
-cd apps/mobile
-npm install
-npm test                   # one-shot (jest)
-npm run test:watch         # watch mode
-```
-
-Runs under **`jest-expo`** with **React Native Testing Library** — pure Node, no
-simulator or device needed. The suite covers the `cn` helper and the shared UI
-primitives (`Button`, `Select`) the auth screens are built from.
-
-> **End-to-end on mobile?** Browser-style Playwright doesn't apply to a native
-> app. The equivalent would be **Maestro** or **Detox** driving a simulator/
-> emulator — that needs a built app and a device, so it isn't wired into CI here.
-> The auth flow itself is identical to the web app's (same backend, same RTK
-> Query layer), which the web e2e suite already exercises end to end.
+Type and lint checks: `npm run typecheck`, `npm run lint`.
 
 ---
 
 ## End-to-end tests
 
 The e2e suite runs the **whole stack**: a throwaway PostgreSQL, the backend on
-the `e2e` profile (port 8081), and the Next.js frontend (port 3000). One command
-orchestrates everything:
+the `e2e` profile (port 8081), and a **production build** of the Next.js
+frontend (port 3001). One command orchestrates everything:
 
 ```bash
 cd apps/web
@@ -101,14 +86,30 @@ npm run test:e2e
 
 What that command does:
 1. `docker compose -f docker-compose.test.yml up -d` — starts the throwaway DB on port **5433**.
-2. Playwright starts **both** servers (frontend + backend) and waits until each
-   answers before running any test — so there is no race against a still-booting
-   backend.
-3. Runs the specs: a `setup` project provisions an account and saves its cookie;
-   the `features` project reuses that state and exercises sign-up redirects,
-   duplicate-field errors, sign-in → dashboard (`GET /me`), and the
-   wrong-credentials security path.
-4. Tears the database back down.
+2. Playwright starts **both** servers (backend via `./mvnw`, frontend via
+   `next build` + `next start` into its own `.next-e2e` folder) and waits until
+   each answers. Servers are never reused, so every run starts with an empty
+   database. The ports don't clash with a dev setup on 3000/8080.
+3. Runs the specs: the `setup` project registers a bootstrap account and saves
+   its cookie; `signed-in.spec.ts` starts with that cookie, `signed-out.spec.ts`
+   without one.
+4. Tears the database back down and exits with Playwright's result (non-zero if
+   a test failed).
+
+Locally there are no retries: a test that only passes on the second try is a
+bug, not bad luck.
+
+What the specs cover:
+
+| Signed out | Signed in |
+|------------|-----------|
+| Protected page → `/sign-in` | Reload keeps the session (silent refresh) |
+| Sign-up creates a `USER`; dashboard shows the data from `GET /me`; no role field | `/`, `/sign-in`, `/sign-up` forward to the dashboard |
+| Invalid input is explained before anything is sent | Sign-out ends the session |
+| Taken email/phone marked on the fields, cleared on edit | Refresh cookie is `HttpOnly` + `SameSite=Lax`, invisible to `document.cookie` |
+| Wrong credentials: generic error, no field hint | |
+| Sign-in ignores the email's capitalization | |
+| A rejected refresh cookie is removed → `/sign-in?session=expired` | |
 
 Run it with the Playwright UI instead:
 

@@ -8,8 +8,7 @@ Three ways to run it, from "just show me" to "I want to develop on it".
 
 - **Docker** (for the database, and optionally the backend)
 - **Java 21** + the bundled Maven wrapper (`./mvnw`) — only if you run the backend outside Docker
-- **Node.js 20+** — for either frontend
-- **For the mobile app only:** an iOS simulator / Android emulator, or a physical phone with the project's own **dev client** installed (see below) — not Expo Go, since this project pins exact native module versions that Expo Go on the App/Play Store won't match
+- **Node.js 20+** — for the web frontend
 
 No global Maven and no global secrets manager needed; the Maven wrapper is
 included and every config value has a built-in default.
@@ -63,39 +62,6 @@ containerised here (Next.js dev experience is best run locally), so still do
 
 ---
 
-## Running the mobile app instead (React Native / Expo)
-
-`apps/mobile` is a drop-in alternative to `apps/web` — same backend, same auth
-flow. Run the backend exactly as above, then:
-
-```bash
-cd apps/mobile
-npm install
-npx expo start                  # press i (iOS), a (Android), or scan the QR
-```
-
-> **First time on a physical device?** This project uses a **development
-> build** instead of Expo Go (Expo Go only supports one SDK version at a time,
-> so it drifts out of sync). Fastest one-time setup: download the prebuilt APK
-> from this repo's [Releases](../../releases) and install it — no EAS account,
-> no cloud build, no waiting. You only need `eas build` yourself if you've
-> changed a native dependency. Full details, including iOS, in
-> [apps/mobile/README.md](../apps/mobile/README.md).
-
-> **`localhost` is the device, not your machine.** Set `EXPO_PUBLIC_BACKEND_URL`
-> for anything other than the iOS simulator:
->
-> | Where it runs | `EXPO_PUBLIC_BACKEND_URL` |
-> | --- | --- |
-> | iOS simulator | `http://localhost:8080` (default) |
-> | Android emulator | `http://10.0.2.2:8080` |
-> | Physical device | `http://<your-computer-LAN-IP>:8080` |
->
-> Copy `apps/mobile/.env.example` to `apps/mobile/.env` to set it. Full details
-> in [apps/mobile/README.md](../apps/mobile/README.md).
-
----
-
 ## Docker instances
 
 | Service | Compose file | Container | Host port | What it is |
@@ -118,8 +84,9 @@ docker compose -f docker-compose.test.yml up -d   # just the test DB
 | Port | Used by |
 |------|---------|
 | 3000 | Next.js frontend (dev) |
+| 3001 | Next.js production build used by the e2e tests (Playwright) |
 | 8080 | Backend (default / Docker / `./mvnw spring-boot:run`) |
-| 8081 | Backend when run with the `e2e` profile (Playwright) — also Expo's Metro bundler default, so don't run mobile + web-e2e at the same time |
+| 8081 | Backend when run with the `e2e` profile (Playwright) |
 | 8082 | Standalone Swagger UI container |
 | 5432 | PostgreSQL (development) |
 | 5433 | PostgreSQL (throwaway test database) |
@@ -178,14 +145,6 @@ backend at startup with an error that names the path. Never reuse the dev keys.
 | `NEXT_PUBLIC_BACKEND_URL` | `http://localhost:8080` | Base URL of the backend; the app appends `/api/v1` |
 
 Copy `apps/web/.env.example` to `apps/web/.env.local` to change it.
-
-### Mobile frontend (`apps/mobile`)
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `EXPO_PUBLIC_BACKEND_URL` | `http://localhost:8080` | Base URL of the backend; the app appends `/api/v1`. See the per-platform table above. |
-
-Copy `apps/mobile/.env.example` to `apps/mobile/.env` to change it.
 
 ---
 

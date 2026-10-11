@@ -10,17 +10,20 @@ make.
 The roles are deliberately generic (`USER`, `ADMIN`). To use your own:
 
 1. **Backend** — edit the enum in
-   `apps/backend/src/main/java/com/authkit/backend/auth/dto/requests/SignUpAccountRequestDto.java`:
+   `apps/backend/src/main/java/com/authkit/backend/common/entities/Role.java`:
    ```java
-   public static enum Role { OWNER, DRIVER, ACCOUNTANT }
+   public enum Role { OWNER, DRIVER, ACCOUNTANT }
    ```
    That's the single source of truth — it flows automatically into the JWT
    authorities (`ROLE_OWNER`, …) and every `@PreAuthorize("hasRole('OWNER')")`.
-2. **Web frontend** — update the union in `apps/web/types/User.ts` and the
-   `<SelectItem>` options + the Zod `z.enum([...])` in
-   `apps/web/app/sign-up/page.tsx`.
-3. **Mobile frontend** — the same two changes in `apps/mobile/types/User.ts` and
-   the `<Select>` `options` + Zod `z.enum([...])` in `apps/mobile/app/sign-up.tsx`.
+   Sign-up always assigns `Role.USER` (`AuthService#signUp`); point it at your
+   default role.
+2. **Web frontend** — update the union in `apps/web/types/User.ts` (it is only
+   used to display the role; nobody picks a role in the form).
+
+Users never choose their own role. Promote someone deliberately, e.g. with
+`UPDATE users SET role = 'ADMIN' WHERE email = '…';`, or build an admin-only
+endpoint for it.
 
 ---
 
@@ -59,9 +62,28 @@ export const { useGetProjectsQuery } = projectsApi;
 The access token is attached automatically. Put new pages under
 `apps/web/app/(shell)/` and they're protected by `proxy.ts` + `AuthProvider` for free.
 
-The mobile app is identical: add the same RTK Query endpoint under
-`apps/mobile/redux/api/apis/` and put new screens under `apps/mobile/app/(shell)/`,
-where `AuthProvider` protects them automatically.
+If the access token expired meanwhile, the request is renewed and repeated
+automatically (see `redux/api/apiSlice.ts`).
+
+---
+
+## Take the auth into another Next.js app
+
+Everything the web client needs for sign-up, sign-in and protected pages lives
+in a handful of files under `apps/web`:
+
+| Files | Role |
+|-------|------|
+| `app/sign-up/page.tsx`, `app/sign-in/page.tsx` | The forms (react-hook-form + Zod, field errors from the backend, session-expired note) |
+| `lib/validation.ts` | The form rules, mirrored from the backend |
+| `actions/auth-action.ts`, `lib/refresh-cookie.ts` | Server Actions that call the backend and keep the refresh token in an HTTP-only cookie |
+| `redux/` (store, `apiSlice.ts`, `apis/auth.ts`, `apis/me.ts`) | RTK Query: access-token cache, automatic renewal on `401` |
+| `components/AuthProvider.tsx`, `components/SignOutButton.tsx`, `app/(shell)/layout.tsx` | The gate for protected pages and sign-out |
+| `proxy.ts` | Redirects between public and protected routes |
+| `lib/config.ts`, `lib/use-hydrated.ts`, `types/` | Backend URL, small helpers, shared types |
+| `components/ui/` | The shadcn/ui pieces the forms use (button, input, field, checkbox, …) |
+
+The matching tests (`__tests__/unit`, `__tests__/e2e`) can come along as well.
 
 ---
 
@@ -70,11 +92,6 @@ where `AuthProvider` protects them automatically.
 Colors and radius are CSS variables in `apps/web/app/globals.css` (a standard
 shadcn/ui token set). Change `--primary` (and its dark-mode value) to rebrand.
 The font is set in `apps/web/app/layout.tsx` (`next/font`).
-
-On mobile the same violet tokens live in `apps/mobile/components/theme/themes.ts`
-(the live light/dark values applied via NativeWind `vars()`), mirrored in
-`apps/mobile/global.css` and `apps/mobile/tailwind.config.js`. Change `--primary`
-in all three to match.
 
 ---
 
@@ -91,9 +108,6 @@ To remove it completely:
 
 Nothing else depends on it — the dashboard becomes a plain welcome screen.
 
-The mobile app has the same gag: delete `apps/mobile/components/fun/` and remove
-the `Celebration` import + usage in `apps/mobile/app/(shell)/dashboard.tsx`.
-
 The "tips" panel next to the auth forms (`apps/web/components/AuthTips.tsx`) is
 separate from the gag; it's genuinely useful onboarding text. Replace it with
 your own marketing, or remove the `<AuthTips />` usage in the sign-in/sign-up
@@ -109,6 +123,4 @@ pages if you prefer a single-column layout.
   (`JWT_PRIVATE_KEY_LOCATION`, `JWT_PUBLIC_KEY_LOCATION`) live in
   `apps/backend/src/main/resources/application*.properties` and
   `docker-compose*.yml`.
-- Frontend package names in `apps/web/package.json` and
-  `apps/mobile/package.json` (plus the app `name`/`slug`/bundle identifiers in
-  `apps/mobile/app.json`).
+- Frontend package name in `apps/web/package.json`.
