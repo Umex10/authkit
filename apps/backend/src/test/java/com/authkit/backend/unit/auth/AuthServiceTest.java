@@ -64,8 +64,10 @@ public class AuthServiceTest {
 
 		when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.empty());
 		when(userRepository.findByPhone(user.getPhone())).thenReturn(Optional.empty());
-		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0)); // return what
-																										// was saved
+		// save() returns the entity it was given, like the real repository does
+		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		// The encoder turns the clear password into "hashed-password", so the last
+		// assert proves the hash is stored, not the clear text.
 		when(encoder.encode(dto.getPassword())).thenReturn(user.getPassword());
 
 		User savedUser = authService.signUp(dto);
@@ -130,7 +132,5 @@ public class AuthServiceTest {
 
 		assertThrows(EntityNotFoundException.class,
 				() -> authService.authenticate(user.getEmail(), user.getPassword()));
-
 	}
-
 }
