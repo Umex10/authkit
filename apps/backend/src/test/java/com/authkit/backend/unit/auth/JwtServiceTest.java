@@ -1,6 +1,7 @@
 package com.authkit.backend.unit.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -117,7 +118,10 @@ public class JwtServiceTest {
 
 		String forgedTk = otherService.createRefreshTk(user);
 
-		assertThrows(SignatureException.class, () -> jwtService.validateRefreshTk(forgedTk));
+		BadCredentialsException ex = assertThrows(BadCredentialsException.class,
+				() -> jwtService.validateRefreshTk(forgedTk));
+		// translated into a Spring AuthenticationException (-> 401); the JJWT cause stays visible
+		assertInstanceOf(SignatureException.class, ex.getCause());
 	}
 
 	/** A correctly signed refresh token whose {@code exp} lies in the past is rejected. */
@@ -132,7 +136,15 @@ public class JwtServiceTest {
 				.signWith(TestKeys.privateKey(), SignatureAlgorithm.RS256) // right key: only the expiry is wrong
 				.compact();
 
-		assertThrows(ExpiredJwtException.class, () -> jwtService.validateRefreshTk(expiredTk));
+		BadCredentialsException ex = assertThrows(BadCredentialsException.class,
+				() -> jwtService.validateRefreshTk(expiredTk));
+		assertInstanceOf(ExpiredJwtException.class, ex.getCause());
+	}
+
+	/** Something that is no JWT at all (e.g. a tampered cookie) is rejected the same way. */
+	@Test
+	void shouldRejectMalformedRefreshTk() {
+		assertThrows(BadCredentialsException.class, () -> jwtService.validateRefreshTk("not-a-jwt"));
 	}
 
 	/** An access token sent as refresh token fails the {@code type_tk == REFRESH} check. */

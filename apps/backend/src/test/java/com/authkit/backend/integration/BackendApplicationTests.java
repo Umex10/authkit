@@ -148,6 +148,16 @@ class BackendApplicationTests {
 	}
 
 	/**
+	 * A refresh cookie that is no valid token (tampered, forged, expired) is a
+	 * client error: 401, not the catch-all 500.
+	 */
+	@Test
+	void shouldRejectInvalidRefreshCookie() throws Exception {
+		mockMvc.perform(get("/auth/access-tk").cookie(new Cookie("refresh_tk", "not-a-jwt")))
+				.andExpect(status().isUnauthorized());
+	}
+
+	/**
 	 * The role stored at sign-up ends up in the token: an ADMIN may call the
 	 * admin route, a regular USER gets 403.
 	 */
