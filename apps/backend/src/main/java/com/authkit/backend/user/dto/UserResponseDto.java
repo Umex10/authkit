@@ -1,6 +1,6 @@
 package com.authkit.backend.user.dto;
 
-import com.authkit.backend.auth.dto.requests.SignUpAccountRequestDto.Role;
+import com.authkit.backend.common.entities.Role;
 import com.authkit.backend.common.entities.User;
 
 import lombok.AllArgsConstructor;

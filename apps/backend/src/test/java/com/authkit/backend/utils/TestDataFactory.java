@@ -4,7 +4,7 @@ import java.util.UUID;
 
 import com.authkit.backend.auth.dto.requests.SignInAccountRequestDto;
 import com.authkit.backend.auth.dto.requests.SignUpAccountRequestDto;
-import com.authkit.backend.auth.dto.requests.SignUpAccountRequestDto.Role;
+import com.authkit.backend.common.entities.Role;
 import com.authkit.backend.common.entities.User;
 
 /**
@@ -56,7 +56,6 @@ public final class TestDataFactory {
 				.email("test@mail.com")
 				.phone("+43123456789")
 				.password("ClearPassword")
-				.role(Role.USER)
 				.build();
 	}
 
@@ -68,18 +67,7 @@ public final class TestDataFactory {
 				.build();
 	}
 
-	/** A valid sign-up payload for an admin, matching {@link #createAdminUser()}. */
-	public static SignUpAccountRequestDto createAdminSignUpDto() {
-		return SignUpAccountRequestDto.builder()
-				.name("Ada Admin")
-				.email("admin@mail.com")
-				.phone("+43987654321")
-				.password("AdminPassword")
-				.role(Role.ADMIN)
-				.build();
-	}
-
-	/** A valid sign-in payload matching {@link #createAdminSignUpDto()}. */
+	/** A valid sign-in payload for the admin of {@link #createAdminUser()}, with the clear password "AdminPassword". */
 	public static SignInAccountRequestDto createAdminSignInDto() {
 		return SignInAccountRequestDto.builder()
 				.email("admin@mail.com")

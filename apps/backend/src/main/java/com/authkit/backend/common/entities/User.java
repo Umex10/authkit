@@ -2,7 +2,6 @@ package com.authkit.backend.common.entities;
 
 import java.util.UUID;
 
-import com.authkit.backend.auth.dto.requests.SignUpAccountRequestDto.Role;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
