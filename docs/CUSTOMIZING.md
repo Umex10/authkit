@@ -26,15 +26,18 @@ The roles are deliberately generic (`USER`, `ADMIN`). To use your own:
 
 ## Add a protected endpoint
 
-Backend — create a controller and read the authenticated user's id straight off
-the request:
+Backend — create a controller and read the authenticated user's id from the
+verified token (`sub` claim):
 
 ```java
 @RestController
 @SecurityRequirement(name = "bearerAuth") // shows the lock in Swagger
 public class ProjectController {
     @GetMapping("/projects")
-    public List<Project> mine(@RequestAttribute("userId") UUID userId) { ... }
+    public List<Project> mine(@AuthenticationPrincipal Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        ...
+    }
 
     @PostMapping("/admin/thing")
     @PreAuthorize("hasRole('ADMIN')")

@@ -4,7 +4,20 @@
 
 - **Stateless JWT.** The backend stores no sessions. Every request is
   authenticated purely from its `Authorization: Bearer <accessTk>` header by
-  `JwtAuthFilter`.
+  Spring Security's **OAuth2 resource server**: the `JwtDecoder` checks the
+  signature, the expiry and that the token is an access token (`type_tk = ACCESS`).
+  No database lookup is needed per request.
+- **Asymmetric signing (RS256).** Only AuthKit holds the **private key** and
+  signs tokens with it. The matching **public key** is published at
+  `/.well-known/jwks.json`, so any other service can verify AuthKit tokens
+  itself, without calling back. A leaked public key is harmless; a leaked
+  private key lets anyone forge tokens for any user.
+- **Refresh tokens are no access tokens.** Both are signed with the same key, so
+  a refresh token has a valid signature too. The `type_tk` claim tells them
+  apart: the resource server only accepts `ACCESS`, the refresh endpoint only
+  `REFRESH`. **Every other service that verifies AuthKit tokens must add the same
+  `type_tk = ACCESS` check**, otherwise it would accept a 30-day refresh token
+  as a bearer token.
 - **Two tokens, two lifetimes.**
   - *Access token* (15 min): returned in the JSON body, kept in memory (the RTK
     Query cache), sent as a Bearer header. Short-lived to limit blast radius.
@@ -22,17 +35,21 @@
   (bcrypt by default) — never stored or logged in clear text.
 - **No account enumeration.** Wrong credentials return a generic
   `401 "The credentials are incorrect."` with no hint about which field was wrong.
-- **Roles** map to Spring authorities (`USER` → `ROLE_USER`) and are enforced
-  with `@PreAuthorize` (see `MeController#adminPing`).
+- **Roles** travel in the access token's `roles` claim. The
+  `JwtAuthenticationConverter` in `SecurityConfig` maps them to Spring
+  authorities (`USER` → `ROLE_USER`), enforced with `@PreAuthorize` (see
+  `MeController#adminPing`).
 
 ## Two subtle bugs this codebase already fixes
 
-1. **Double-registered filter.** Because `JwtAuthFilter` is a Spring bean, Spring
-   Boot would also auto-register it as a *global* servlet filter — running it
-   twice, with the security chain's `SecurityContextHolderFilter` wiping the
-   authentication on the second pass (every request ends up anonymous). A
-   disabled `FilterRegistrationBean<JwtAuthFilter>` in `SecurityConfig` stops the
-   auto-registration so the filter runs exactly once, inside the chain.
+1. **`StackOverflowError` on every rejected token.** `SecurityConfig` exposes
+   Spring's global `AuthenticationManager`, which is also the parent of the
+   resource server's manager. Spring can only build it when there is exactly
+   one `UserDetailsService` bean (`CustomUserDetailsService`). With none or
+   several, it falls back to a proxy that delegates to itself, and every
+   rejected bearer token ends in endless recursion. Keep exactly one
+   `UserDetailsService`, and import it in every `@WebMvcTest` that imports
+   `SecurityConfig`.
 2. **`@PreAuthorize` → 500 instead of 403.** Method-security denials throw
    `AccessDeniedException` during the controller invocation, where a catch-all
    `@ExceptionHandler(Exception.class)` would turn it into a 500. An explicit
@@ -40,10 +57,14 @@
 
 ## Before you ship to production
 
-- [ ] **Use a production RSA key pair.** Generate it once (see `RUNNING.md`) and point
-      `JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` at it. Never reuse a dev
-      key, never commit `private.pem`, and give only the backend access to it —
-      other services need just the public key (`/.well-known/jwks.json`).
+- [ ] **Use a production RSA key pair.** Generate it once with
+      `scripts/generate-jwt-keys.sh <folder outside the repo>`, store both files as
+      a secret and let your platform mount them into the container, then point
+      `JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` at them (details in
+      [RUNNING.md](RUNNING.md#jwt-keys)). The Docker image never generates keys, so
+      missing ones stop the backend at startup. Never reuse a dev key, never commit
+      `private.pem`, and give only the backend access to it — other services need
+      just the public key (`/.well-known/jwks.json`).
 - [ ] **Serve over HTTPS** and set the refresh cookie's `secure` flag to `true`
       — in `AuthController#createAuthResponseDto` (backend) and in
       `setRefreshCookie` (`apps/web/actions/auth-action.ts`). Mobile keeps the

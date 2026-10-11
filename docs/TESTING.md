@@ -5,7 +5,7 @@ out of the box.
 
 | Layer | Tool | Location | What it proves |
 |-------|------|----------|----------------|
-| Backend unit + integration | JUnit 5, MockMvc, Spring Security Test | `apps/backend/src/test` | Token logic, sign-up rules, the auth endpoints, the JWT filter, role-based access |
+| Backend unit, slice + integration | JUnit 5, Mockito, MockMvc, Spring Security Test | `apps/backend/src/test` | Token logic, key loading, sign-up rules, the auth endpoints, token verification, role-based access, the JWKS endpoint |
 | Web unit | Vitest + Testing Library | `apps/web/__tests__/unit` | Pure helpers and components render correctly |
 | Web end-to-end | Playwright (Chromium) | `apps/web/__tests__/e2e` | The real browser flow against the real backend + database |
 | Mobile unit | Jest (`jest-expo`) + React Native Testing Library | `apps/mobile/__tests__` | Pure helpers and RN components (Button, Select) behave correctly |
@@ -23,12 +23,35 @@ Uses an **in-memory H2 database** in PostgreSQL-compatibility mode (the `test`
 profile, `src/test/resources/application-test.properties`) — no Docker required,
 runs in seconds.
 
-What's covered:
-- `JwtServiceTest` — token creation, validation, extraction (header & cookie)
-- `AuthServiceTest` — sign-up happy path + duplicate email/phone
-- `AuthControllerTest` — all three auth endpoints, error envelopes, bean validation
-- `JwtAuthFilterTest` — the filter authenticates a request and exposes `userId`
-- `MeControllerTest` — protected `/me`, and `@PreAuthorize` allowing/forbidding `/admin/ping`
+No key files are needed either: the tests create their own RSA key
+pair at runtime (`utils/TestKeys`).
+
+`./mvnw verify` additionally writes a JaCoCo coverage report to
+`apps/backend/target/site/jacoco/index.html` (the CI uploads it as the
+`backend-reports` artifact).
+
+The tests are split into three layers:
+
+**Unit** (`unit/`, no Spring context, dependencies mocked):
+- `JwtServiceTest`: access/refresh token claims, refresh token validation (wrong key, expired, malformed, wrong type, user gone), cookie extraction
+- `AuthServiceTest`: sign-up with free/taken email and phone, sign-in with valid/invalid credentials
+- `CustomUserDetailsServiceTest`: email lookup for the password check
+- `RsaKeyFilesTest`: reading the PEM key files (valid, broken, unreadable) and a write/read round trip
+- `DevKeyGeneratorTest`: the dev key pair is created only when both files are missing and the switch is on
+
+**Slice** (`slice/`, `@WebMvcTest`: only the web layer, services mocked):
+- `AuthControllerTest`: the three `/auth` endpoints, error envelopes, bean validation
+- `MeControllerTest`: `/me` and `/admin/ping` through the real `SecurityConfig`, with real signed tokens and `@PreAuthorize`
+- `JwksControllerTest`: the public JWKS endpoint, without any private key material
+
+**Integration** (`integration/BackendApplicationTests`, the whole app, nothing mocked):
+the real `KeyConfig` loads keys written to a temp folder; the Spring context
+starts once and is shared by all tests, the database is emptied before each.
+Covers sign-up → sign-in → `/me`, the refresh cookie (valid → new access
+token, invalid → 401), admin vs. user role,
+duplicate sign-up, the published JWKS, and a decoder built only from
+`jwks.json` (as another microservice would) that accepts access tokens and
+rejects refresh tokens.
 
 ---
 
