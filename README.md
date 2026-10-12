@@ -1,5 +1,11 @@
 # 🔐 AuthKit
 
+[![backend](https://github.com/Umex10/authkit/actions/workflows/backend-verify-ci.yml/badge.svg?branch=main)](https://github.com/Umex10/authkit/actions/workflows/backend-verify-ci.yml)
+[![web build](https://github.com/Umex10/authkit/actions/workflows/web-build-ci.yml/badge.svg?branch=main)](https://github.com/Umex10/authkit/actions/workflows/web-build-ci.yml)
+[![web unit](https://github.com/Umex10/authkit/actions/workflows/web-unit-ci.yml/badge.svg?branch=main)](https://github.com/Umex10/authkit/actions/workflows/web-unit-ci.yml)
+[![web e2e](https://github.com/Umex10/authkit/actions/workflows/web-e2e-ci.yml/badge.svg?branch=main)](https://github.com/Umex10/authkit/actions/workflows/web-e2e-ci.yml)
+[![docker image](https://github.com/Umex10/authkit/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Umex10/authkit/pkgs/container/authkit-backend)
+
 > A reusable, drop-in **authentication microservice** — clone it, start it, and you have working sign-up, sign-in, JWT sessions, roles, Swagger and tests on day one.
 
 AuthKit is a small monorepo with a **Spring Boot** auth backend and a **Next.js** web app that implements the complete, production-style auth flow against it ([how to use it](#-how-to-use-it)):
@@ -12,7 +18,8 @@ AuthKit is a small monorepo with a **Spring Boot** auth backend and a **Next.js*
 - ✅ Live **Swagger UI** with an `Authorize 🔒` button
 - ✅ Modern frontend: Next.js App Router + Server Actions + **Redux Toolkit Query**; route protection via `proxy.ts` / `AuthProvider`, silent token renewal, expired sessions lead back to sign-in
 - ✅ Tests everywhere: Spring unit/slice/integration tests, Vitest unit tests and Playwright e2e for the web app
-- ✅ One `docker compose up` away from running
+- ✅ One `docker compose up` away from running; the backend is also published as a versioned image on ghcr.io
+- ✅ GitHub Actions for everything: backend tests, web build/unit/e2e, Docker image build and publish
 
 It was extracted, almost 1:1, from a production app — so it is not a toy. Use it as the starting point for any new project that needs auth, and as a reference for how the pieces fit together.
 
@@ -28,7 +35,7 @@ It was extracted, almost 1:1, from a production app — so it is not a toy. Use 
 </td>
 <td width="50%" valign="top">
   <img src="docs/screenshots/authkit-signup.png" width="100%" alt="AuthKit sign-up screen"/>
-  <sub><b>Sign-up</b> — validation, roles, terms; posts to <code>/auth/sign-up</code>.</sub>
+  <sub><b>Sign-up</b> — validation, terms; posts to <code>/auth/sign-up</code>. Every new account is a <code>USER</code>.</sub>
 </td>
 </tr>
 <tr>
@@ -90,6 +97,20 @@ Open **http://localhost:3000**, register — and you land on a dashboard that sa
 
 ---
 
+## 🐳 Prebuilt backend image
+
+Every release is published to the GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/umex10/authkit-backend:1.0.0   # or :latest
+```
+
+The image ships without keys: mount a key pair and point
+`JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` at it — see
+[docs/RUNNING.md](docs/RUNNING.md#jwt-keys) and [docs/CI.md](docs/CI.md).
+
+---
+
 ## 🗺️ What's in the box
 
 ```
@@ -97,6 +118,7 @@ authkit/
 ├── apps/
 │   ├── backend/        Spring Boot 4 · Java 21 · JWT · Spring Security · springdoc
 │   └── web/            Next.js 16 · React 19 · Redux Toolkit Query · Tailwind v4 · shadcn/ui
+├── .github/workflows/         CI: backend + web tests, Docker build/publish
 ├── docker-compose.yml         Postgres + backend + Swagger UI
 ├── docker-compose.test.yml    Throwaway Postgres for e2e tests
 ├── scripts/                   generate-jwt-keys.sh
@@ -115,6 +137,7 @@ authkit/
 | [docs/SWAGGER.md](docs/SWAGGER.md) | Using the live API docs and the `Authorize 🔒` button |
 | [docs/TESTING.md](docs/TESTING.md) | Backend unit/slice/integration tests, web unit tests, Playwright e2e |
 | [docs/SECURITY.md](docs/SECURITY.md) | The token/cookie model and what to harden before production |
+| [docs/CI.md](docs/CI.md) | The GitHub Actions workflows, the published Docker image and how to make a release |
 | [docs/CUSTOMIZING.md](docs/CUSTOMIZING.md) | Change the roles, add endpoints, re-theme, and remove the fun gag |
 
 ---

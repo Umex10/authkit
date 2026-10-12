@@ -71,6 +71,9 @@ Fast tests without servers or a browser:
 
 Type and lint checks: `npm run typecheck`, `npm run lint`.
 
+Every run also writes `test-reports/junit.xml` (configured in
+`vitest.config.ts`); the CI uploads it as an artifact.
+
 ---
 
 ## End-to-end tests
@@ -123,3 +126,12 @@ So tests never touch your development data. `application-e2e.properties` points
 the backend at the disposable Postgres on `5433`, recreates the schema on every
 boot (`ddl-auto=create-drop`), and runs on port `8081` so it can sit next to a
 normally-running dev backend on `8080`.
+
+---
+
+## In CI
+
+Each layer has its own GitHub Actions workflow (`backend-verify-ci`,
+`web-unit-ci`, `web-e2e-ci`, plus `web-build-ci` for lint, types and the
+build). Their reports are attached to every run as artifacts; see
+[CI.md](CI.md).
