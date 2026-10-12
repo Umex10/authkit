@@ -160,7 +160,7 @@ sequenceDiagram
     else unique
         AS->>PE: encode(rawPassword)
         PE-->>AS: "{bcrypt}…" hash
-        AS->>UR: save(User{…, password=hash})
+        AS->>UR: save(User{…, email=lower-cased, role=USER, password=hash})
         UR->>DB: INSERT INTO users …
         DB-->>AS: persisted User (with generated UUID)
         AS-->>AC: User

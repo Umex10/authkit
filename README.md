@@ -1,17 +1,25 @@
 # 🔐 AuthKit
 
+[![backend](https://github.com/Umex10/authkit/actions/workflows/backend-verify-ci.yml/badge.svg?branch=main)](https://github.com/Umex10/authkit/actions/workflows/backend-verify-ci.yml)
+[![web build](https://github.com/Umex10/authkit/actions/workflows/web-build-ci.yml/badge.svg?branch=main)](https://github.com/Umex10/authkit/actions/workflows/web-build-ci.yml)
+[![web unit](https://github.com/Umex10/authkit/actions/workflows/web-unit-ci.yml/badge.svg?branch=main)](https://github.com/Umex10/authkit/actions/workflows/web-unit-ci.yml)
+[![web e2e](https://github.com/Umex10/authkit/actions/workflows/web-e2e-ci.yml/badge.svg?branch=main)](https://github.com/Umex10/authkit/actions/workflows/web-e2e-ci.yml)
+[![docker image](https://github.com/Umex10/authkit/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Umex10/authkit/pkgs/container/authkit-backend)
+
 > A reusable, drop-in **authentication microservice** — clone it, start it, and you have working sign-up, sign-in, JWT sessions, roles, Swagger and tests on day one.
 
-AuthKit is a small monorepo with a **Spring Boot** backend and **two interchangeable frontends** — a **Next.js** web app and a **React Native** mobile app — that each implement the same complete, production-style auth flow against the one backend ([which one should I use?](#-which-frontend-should-i-use)):
+AuthKit is a small monorepo with a **Spring Boot** auth backend and a **Next.js** web app that implements the complete, production-style auth flow against it ([how to use it](#-how-to-use-it)):
 
 - ✅ Sign-up & sign-in with server-side validation
 - ✅ Short-lived **access token** (15 min) + long-lived **refresh token** (30 days) in an **HTTP-only cookie**
-- ✅ Stateless JWT security, role-based authorization (`USER` / `ADMIN`)
+- ✅ Stateless JWT security (RS256), role-based authorization (`USER` / `ADMIN`; sign-up always creates a `USER`)
+- ✅ A public **JWKS endpoint**, so other services verify tokens themselves
 - ✅ A protected example route (`GET /me`) and an admin-only route (`@PreAuthorize`)
 - ✅ Live **Swagger UI** with an `Authorize 🔒` button
-- ✅ Modern frontends: **Redux Toolkit Query** on both — Next.js App Router + Server Actions (web) and Expo Router + secure keystore (mobile); route protection via `proxy.ts` / `AuthProvider`
-- ✅ Tests everywhere: Spring integration tests, Vitest + Playwright e2e (web), Jest + React Native Testing Library (mobile)
-- ✅ One `docker compose up` away from running
+- ✅ Modern frontend: Next.js App Router + Server Actions + **Redux Toolkit Query**; route protection via `proxy.ts` / `AuthProvider`, silent token renewal, expired sessions lead back to sign-in
+- ✅ Tests everywhere: Spring unit/slice/integration tests, Vitest unit tests and Playwright e2e for the web app
+- ✅ One `docker compose up` away from running; the backend is also published as a versioned image on ghcr.io
+- ✅ GitHub Actions for everything: backend tests, web build/unit/e2e, Docker image build and publish
 
 It was extracted, almost 1:1, from a production app — so it is not a toy. Use it as the starting point for any new project that needs auth, and as a reference for how the pieces fit together.
 
@@ -27,7 +35,7 @@ It was extracted, almost 1:1, from a production app — so it is not a toy. Use 
 </td>
 <td width="50%" valign="top">
   <img src="docs/screenshots/authkit-signup.png" width="100%" alt="AuthKit sign-up screen"/>
-  <sub><b>Sign-up</b> — validation, roles, terms; posts to <code>/auth/sign-up</code>.</sub>
+  <sub><b>Sign-up</b> — validation, terms; posts to <code>/auth/sign-up</code>. Every new account is a <code>USER</code>.</sub>
 </td>
 </tr>
 <tr>
@@ -50,28 +58,21 @@ It was extracted, almost 1:1, from a production app — so it is not a toy. Use 
 
 ---
 
-## 🧭 Which frontend should I use?
+## 🧭 How to use it
 
 The heart of AuthKit is the **backend in `apps/backend`** — a self-contained
-**authentication microservice**. The two frontends are just reference clients of
-it. Decide based on what you're building, then keep that app and (optionally)
-delete the other:
+**authentication microservice**. `apps/web` is its reference client.
 
-| You are building… | Use | Why |
-|-------------------|-----|-----|
-| **A website / web app** | **`apps/web`** (Next.js) | Server-rendered web client; refresh token kept in an HTTP-only cookie via Server Actions. |
-| **A mobile app** (new or existing) | **`apps/mobile`** (React Native / Expo) | Native client; refresh token kept in the device keystore. Drop the auth microservice into your app whenever you "just need login". |
+- **Building a web app?** Start from `apps/web`: the sign-up/sign-in forms, the
+  HTTP-only refresh cookie (via Server Actions) and the route guards are done.
+- **Already have an app?** Run `apps/backend` as a standalone auth service and
+  point your app at its HTTP API (`/api/v1/auth/**`, `/api/v1/me`, …). Other
+  backend services verify the tokens with the public key from
+  `/api/v1/.well-known/jwks.json`. `apps/web` then doubles as a **copy-paste
+  reference** for the client side: forms, validation (`lib/validation.ts`),
+  RTK Query layer, token renewal and route guards.
 
-**Already have an app?** You don't have to adopt a whole frontend. Run
-`apps/backend` as a standalone auth microservice and point your existing app at
-its HTTP API (`/api/v1/auth/**`, `/api/v1/me`, …). `apps/web` and `apps/mobile`
-then double as **copy-paste reference implementations** of the client side — the
-RTK Query layer, the token/refresh handling and the route guards are all there to
-lift into your codebase.
-
-Both frontends share the same screens, design and auth state machine, so moving
-between them (or running both) is straightforward. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full flow.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full flow.
 
 ---
 
@@ -84,34 +85,29 @@ scripts/generate-jwt-keys.sh
 # 1. Start the database + backend (+ a mirrored Swagger UI)
 docker compose up -d
 
-# 2a. …then start the WEB frontend (Next.js)
+# 2. …then start the web frontend (Next.js)
 cd apps/web
 npm install
 npm run dev          # → http://localhost:3000
-
-# 2b. …OR start the MOBILE frontend (React Native / Expo)
-cd apps/mobile
-npm install
-npx expo start       # → press i / a, or scan the QR with the AuthKit dev client (not Expo Go)
 ```
 
-Open the web app at **http://localhost:3000** (or launch the mobile app), register — and you land on a dashboard that says *"You made it!"* 🎉
-
-> ⚠️ **Mobile on a physical device or Android emulator:** `localhost` means the
-> *device itself*, not your computer — so the app can't reach the backend and you
-> get a "backend not running" error even when Docker is fine. Set
-> `EXPO_PUBLIC_BACKEND_URL` to your computer's LAN IP first (physical device →
-> `http://<LAN-IP>:8080`, Android emulator → `http://10.0.2.2:8080`; the iOS
-> simulator works as-is). Step-by-step + verification:
-> [apps/mobile/README.md](apps/mobile/README.md#-running-on-a-physical-device-do-this-first).
->
-> **Physical device, first time ever?** You'll need the project's own dev
-> client installed once — Expo Go won't work here. Fastest way: grab the
-> prebuilt APK from this repo's [Releases](../../releases), no EAS account or
-> cloud build needed. See
-> [apps/mobile/README.md](apps/mobile/README.md#-install-the-dev-client-on-your-phone-one-time-only).
+Open **http://localhost:3000**, register — and you land on a dashboard that says *"You made it!"* 🎉
 
 > No configuration needed: every value has a sensible default. Only the JWT keys are created per clone (step 0; when you run the backend without Docker it creates them itself). See [docs/RUNNING.md](docs/RUNNING.md) for all the variations (full Docker, manual dev, individual services) and for [production keys](docs/RUNNING.md#jwt-keys).
+
+---
+
+## 🐳 Prebuilt backend image
+
+Every release is published to the GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/umex10/authkit-backend:1.0.0   # or :latest
+```
+
+The image ships without keys: mount a key pair and point
+`JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` at it — see
+[docs/RUNNING.md](docs/RUNNING.md#jwt-keys) and [docs/CI.md](docs/CI.md).
 
 ---
 
@@ -121,10 +117,11 @@ Open the web app at **http://localhost:3000** (or launch the mobile app), regist
 authkit/
 ├── apps/
 │   ├── backend/        Spring Boot 4 · Java 21 · JWT · Spring Security · springdoc
-│   ├── web/            Next.js 16 · React 19 · Redux Toolkit Query · Tailwind v4 · shadcn/ui
-│   └── mobile/         Expo · React Native · Expo Router · NativeWind · Redux Toolkit Query
+│   └── web/            Next.js 16 · React 19 · Redux Toolkit Query · Tailwind v4 · shadcn/ui
+├── .github/workflows/         CI: backend + web tests, Docker build/publish
 ├── docker-compose.yml         Postgres + backend + Swagger UI
 ├── docker-compose.test.yml    Throwaway Postgres for e2e tests
+├── scripts/                   generate-jwt-keys.sh
 └── docs/                      You are here-ish
 ```
 
@@ -138,8 +135,9 @@ authkit/
 | [docs/BACKEND_FLOW.md](docs/BACKEND_FLOW.md) | **Detailed backend call graph** — controller → service → repository → DB, per endpoint, incl. the security filter chain |
 | [docs/RUNNING.md](docs/RUNNING.md) | Every way to run it, all Docker instances, ports and environment variables |
 | [docs/SWAGGER.md](docs/SWAGGER.md) | Using the live API docs and the `Authorize 🔒` button |
-| [docs/TESTING.md](docs/TESTING.md) | Backend integration tests, frontend unit tests, Playwright e2e |
+| [docs/TESTING.md](docs/TESTING.md) | Backend unit/slice/integration tests, web unit tests, Playwright e2e |
 | [docs/SECURITY.md](docs/SECURITY.md) | The token/cookie model and what to harden before production |
+| [docs/CI.md](docs/CI.md) | The GitHub Actions workflows, the published Docker image and how to make a release |
 | [docs/CUSTOMIZING.md](docs/CUSTOMIZING.md) | Change the roles, add endpoints, re-theme, and remove the fun gag |
 
 ---
@@ -169,6 +167,7 @@ Full sequence diagrams (sign-up, sign-in, silent refresh, protected request) liv
 | `GET`  | `/api/v1/auth/access-tk` | refresh cookie | Exchange the refresh cookie for a fresh access token |
 | `GET`  | `/api/v1/me` | access token | The current user (example protected route) |
 | `GET`  | `/api/v1/admin/ping` | access token + `ADMIN` | Role-protected example route |
+| `GET`  | `/api/v1/.well-known/jwks.json` | public | Public key (JWKS) for services that verify AuthKit tokens |
 
 Explore them live at **http://localhost:8080/api/v1/swagger-ui.html**.
 
@@ -178,8 +177,7 @@ Explore them live at **http://localhost:8080/api/v1/swagger-ui.html**.
 
 **Backend:** Spring Boot 4, Java 21, Spring Security, JJWT, Spring Data JPA, PostgreSQL / H2, springdoc-openapi.
 **Web frontend:** Next.js 16 (App Router), React 19, Redux Toolkit Query, react-hook-form + Zod, Tailwind CSS v4, shadcn/ui, sonner.
-**Mobile frontend:** Expo, React Native, Expo Router, NativeWind, Redux Toolkit Query, react-hook-form + Zod, sonner-native, expo-secure-store.
-**Testing:** JUnit 5 + MockMvc + Spring Security Test, Vitest + Testing Library, Playwright.
+**Testing:** JUnit 5 + Mockito + MockMvc + Spring Security Test + JaCoCo, Vitest + Testing Library, Playwright.
 
 ---
 

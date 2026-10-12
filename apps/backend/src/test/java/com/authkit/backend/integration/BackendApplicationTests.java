@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimValidator;
@@ -35,6 +36,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import com.authkit.backend.auth.dto.TkName;
 import com.authkit.backend.auth.dto.requests.SignInAccountRequestDto;
 import com.authkit.backend.auth.dto.requests.SignUpAccountRequestDto;
+import com.authkit.backend.common.entities.User;
 import com.authkit.backend.common.repositories.UserRepository;
 import com.authkit.backend.utils.TestDataFactory;
 import com.authkit.backend.utils.TestKeys;
@@ -97,9 +99,13 @@ class BackendApplicationTests {
 	@Autowired
 	private ObjectMapper objectMapper;
 
-	/** The real repository (no mock), only used to reset the database. */
+	/** The real repository (no mock), used to reset the database and to create an admin. */
 	@Autowired
 	private UserRepository userRepository;
+
+	/** Hashes the admin's password the same way sign-up would. */
+	@Autowired
+	private PasswordEncoder passwordEncoder;
 
 	/**
 	 * The H2 database lives as long as the Spring context, i.e. across tests.
@@ -158,12 +164,16 @@ class BackendApplicationTests {
 	}
 
 	/**
-	 * The role stored at sign-up ends up in the token: an ADMIN may call the
-	 * admin route, a regular USER gets 403.
+	 * The stored role ends up in the token: an ADMIN may call the admin route, a
+	 * regular USER gets 403. Sign-up cannot create admins, so the admin is put
+	 * into the database directly, the way an operator would promote someone.
 	 */
 	@Test
 	void shouldAllowAdminRouteOnlyForAdminAccounts() throws Exception {
-		signUp(TestDataFactory.createAdminSignUpDto());
+		User admin = TestDataFactory.createAdminUser();
+		admin.setId(null); // let JPA generate it
+		admin.setPassword(passwordEncoder.encode(TestDataFactory.createAdminSignInDto().getPassword()));
+		userRepository.save(admin);
 		signUp(TestDataFactory.createSignUpDto());
 
 		String adminTk = accessTkOf(signIn(TestDataFactory.createAdminSignInDto()));
@@ -174,6 +184,40 @@ class BackendApplicationTests {
 				.andExpect(jsonPath("$").value(containsString("pong")));
 		mockMvc.perform(get("/admin/ping").header("Authorization", "Bearer " + userTk))
 				.andExpect(status().isForbidden());
+	}
+
+	/**
+	 * Self-registration never grants a role: a "role": "ADMIN" smuggled into the
+	 * JSON is ignored and the account is a USER.
+	 */
+	@Test
+	void shouldIgnoreRoleSentWithSignUp() throws Exception {
+		String json = objectMapper.writeValueAsString(TestDataFactory.createSignUpDto())
+				.replaceFirst("\\{", "{\"role\":\"ADMIN\",");
+		mockMvc.perform(post("/auth/sign-up").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isCreated());
+
+		String accessTk = accessTkOf(signIn(TestDataFactory.createSignInDto()));
+
+		mockMvc.perform(get("/me").header("Authorization", "Bearer " + accessTk))
+				.andExpect(jsonPath("$.role").value("USER"));
+		mockMvc.perform(get("/admin/ping").header("Authorization", "Bearer " + accessTk))
+				.andExpect(status().isForbidden());
+	}
+
+	/**
+	 * Emails are compared without case, so a capital letter at sign-in does not
+	 * lock the user out. (Surrounding spaces are already rejected by @Email; the
+	 * frontend trims them before sending.)
+	 */
+	@Test
+	void shouldSignInWithDifferentlyCasedEmail() throws Exception {
+		signUp(TestDataFactory.createSignUpDto());
+
+		SignInAccountRequestDto shouted = TestDataFactory.createSignInDto();
+		shouted.setEmail(shouted.getEmail().toUpperCase());
+
+		signIn(shouted);
 	}
 
 	/**

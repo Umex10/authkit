@@ -66,7 +66,8 @@ sequenceDiagram
     participant DB as PostgreSQL
 
     U->>A: signUp(values) via RTK mutation
-    A->>B: POST /api/v1/auth/sign-up { name, email, phone, password, role }
+    A->>B: POST /api/v1/auth/sign-up { name, email, phone, password }
+    Note over B: email trimmed + lower-cased,<br/>role is always USER
     B->>DB: unique email & phone check
     alt email or phone taken
         B-->>A: 400 ApiError { errors:[{field,message}] }
@@ -130,6 +131,22 @@ sequenceDiagram
     end
 ```
 
+### When the session cannot be restored
+
+`proxy.ts` only checks that the cookie **exists**, not that it is valid. If the
+backend rejects it (expired, signed with a key that was replaced, or the account
+was deleted), `AuthProvider` deletes the cookie and sends the user to
+`/sign-in?session=expired`, which shows "Your session has expired". Without that
+step the user would sit on an empty dashboard, and `/sign-in` would keep sending
+them back because the cookie is still there.
+
+### Access token expiry while the page stays open
+
+The access token lives 15 minutes. When an API call comes back `401`, the shared
+RTK Query base query fetches a new access token with the refresh cookie and
+repeats the call once (parallel calls share one renewal). If the renewal fails
+too, the case above applies.
+
 ### The reverse: already signed in
 
 The same cookie check works the other way around. If you **already** have a
@@ -140,11 +157,6 @@ flag, and the dashboard shows a short "you're already signed in" note so the
 convenience redirect is visible rather than magic. (The AuthKit logo in the
 header intentionally links to `/`, so clicking it from the dashboard demonstrates
 this exact bounce.)
-
-The **mobile app** reproduces this without middleware: the landing screen checks
-the keystore for a refresh token on mount and `router.replace`s to the dashboard
-(with the same flag) when one is present — see `app/index.tsx` and
-`components/AuthProvider.tsx`.
 
 ---
 
@@ -189,18 +201,11 @@ from the token's `sub` claim. See [SECURITY.md](SECURITY.md) for the details.
 | Token | Lifetime | Where it lives | Sent how |
 |-------|----------|----------------|----------|
 | **Access token** | 15 minutes | RTK Query cache (memory) | `Authorization: Bearer …` header |
-| **Refresh token** | 30 days | `refresh_tk` **HTTP-only** cookie (web) / **OS keystore** via expo-secure-store (mobile) | browser cookie jar → BFF (web) / explicit `Cookie:` header (mobile) |
+| **Refresh token** | 30 days | `refresh_tk` cookie: HTTP-only, SameSite=Lax, Secure in production | browser cookie jar → Next.js Server Actions (BFF) → backend |
 
 The backend is **stateless** — it stores no sessions. Signing out simply deletes
-the refresh token (cookie on web, keystore entry on mobile); any still-valid
-access token expires on its own within 15 minutes.
-
-> **Two frontends, one backend.** `apps/web` (Next.js) and `apps/mobile` (React
-> Native / Expo) are interchangeable clients of the same API. The only real
-> difference is *where the refresh token lives* — an HTTP-only cookie managed by
-> Next.js Server Actions on the web, versus the OS keystore on mobile (which
-> reads the `Set-Cookie` header and replays it as a `Cookie:` header). The Redux/
-> RTK Query layer, the Zod schemas and the screens are otherwise near-identical.
+the refresh cookie; any still-valid access token expires on its own within 15
+minutes.
 
 ---
 

@@ -2,7 +2,6 @@ package com.authkit.backend.auth.dto.requests;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,15 +11,12 @@ import lombok.NoArgsConstructor;
 /**
  * Request payload for the {@code POST /auth/sign-up} endpoint.
  *
- * <p>Carries the full set of attributes required to create a new {@code User}.
- * Each field is validated server-side; the {@link Role} enum mirrors the
- * application-level role taxonomy and is also the canonical source for the
- * frontend's role select.
+ * <p>Carries the attributes required to create a new {@code User}; each field is
+ * validated server-side.
  *
- * <p><b>Customising for your project:</b> the {@link Role} enum below is the one
- * thing you will almost certainly change. Add your own roles (e.g. {@code OWNER},
- * {@code DRIVER}, {@code ACCOUNTANT}) and they will automatically flow through to
- * the JWT authorities and the {@code @PreAuthorize} checks.
+ * <p>There is deliberately no {@code role} field: every new account is a
+ * {@code USER}. A {@code "role"} sent by a client is ignored (unknown JSON
+ * properties are skipped), so nobody can register themselves as {@code ADMIN}.
  */
 @Data
 @Builder
@@ -41,24 +37,6 @@ public class SignUpAccountRequestDto {
 	private String phone;
 
 	@NotBlank(message = "Password is required")
-	@Size(min = 6, message = "Password must be at least {min} characters.")
+	@Size(min = 8, message = "Password must be at least {min} characters.")
 	private String password;
-
-	@NotNull(message = "Role is required")
-	private Role role;
-
-	/**
-	 * Application-level user roles.
-	 *
-	 * <p>Persisted as a string on the {@code User} entity and mapped to the
-	 * Spring Security authority {@code ROLE_<NAME>} by
-	 * {@link com.authkit.backend.auth.security.CustomUserDetails#getAuthorities()}.
-	 *
-	 * <p>These two generic roles are a sensible starting point. Replace or extend
-	 * them with whatever your project needs.
-	 */
-	public static enum Role {
-		USER,
-		ADMIN
-	}
 }

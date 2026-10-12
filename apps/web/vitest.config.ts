@@ -15,6 +15,16 @@ export default defineConfig({
     setupFiles: ["./__tests__/unit/setup.ts"],
     include: ["__tests__/unit/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["__tests__/e2e/**", "node_modules/**"],
+    // Console output plus a JUnit XML file with every test (name, duration,
+    // error message of failed ones), locally and on CI. On GitHub Actions
+    // failed tests are also marked on the run page. Listing reporters
+    // replaces the default one, so "default" is named as well.
+    reporters: [
+      "default",
+      "junit",
+      ...(process.env.GITHUB_ACTIONS ? ["github-actions"] : []),
+    ],
+    outputFile: { junit: "test-reports/junit.xml" },
   },
   resolve: {
     alias: {

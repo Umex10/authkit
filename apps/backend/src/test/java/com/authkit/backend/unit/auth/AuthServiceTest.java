@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -22,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.authkit.backend.auth.AuthService;
 import com.authkit.backend.auth.dto.requests.SignUpAccountRequestDto;
+import com.authkit.backend.common.entities.Role;
 import com.authkit.backend.common.entities.User;
 import com.authkit.backend.common.exception.ApiError;
 import com.authkit.backend.common.exception.OwnException;
@@ -75,6 +77,31 @@ public class AuthServiceTest {
 		assertNotNull(savedUser);
 		assertEquals(user.getEmail(), savedUser.getEmail());
 		assertEquals(user.getPassword(), savedUser.getPassword());
+		assertEquals(Role.USER, savedUser.getRole()); // sign-up never creates an admin
+	}
+
+	/** The email is stored trimmed and in lower case, and checked for duplicates that way. */
+	@Test
+	void shouldNormalizeEmailOnSignUp() {
+		SignUpAccountRequestDto dto = TestDataFactory.createSignUpDto();
+		dto.setEmail("  Test@MAIL.com ");
+
+		when(userRepository.findByEmail("test@mail.com")).thenReturn(Optional.empty());
+		when(userRepository.findByPhone(user.getPhone())).thenReturn(Optional.empty());
+		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		assertEquals("test@mail.com", authService.signUp(dto).getEmail());
+	}
+
+	/** Sign-in normalizes the email the same way before checking the credentials. */
+	@Test
+	void shouldNormalizeEmailOnSignIn() {
+		when(userRepository.findByEmail("test@mail.com")).thenReturn(Optional.of(user));
+
+		authService.authenticate(" TEST@mail.com", user.getPassword());
+
+		verify(authenticationManager)
+				.authenticate(new UsernamePasswordAuthenticationToken("test@mail.com", user.getPassword()));
 	}
 
 	/** Taken email and phone are both reported at once. */

@@ -3,8 +3,12 @@
 import axios from "axios";
 import { cookies } from "next/headers";
 import { API_BASE_URL } from "@/lib/config";
-import { SignInFormValues } from "@/app/sign-in/page";
-import { SignUpFormValues } from "@/app/sign-up/page";
+import {
+  REFRESH_COOKIE,
+  REFRESH_COOKIE_MAX_AGE,
+  extractRefreshTk,
+} from "@/lib/refresh-cookie";
+import type { SignInFormValues, SignUpFormValues } from "@/lib/validation";
 
 /**
  * Pre-configured axios instance for the backend auth API.
@@ -32,24 +36,15 @@ const authFetch = axios.create({
 export const signUpAction = async (signUpData: SignUpFormValues) => {
   try {
     // `terms` is a UI-only checkbox — strip it so only the backend DTO fields
-    // (name, email, phone, password, role) are sent.
-    const { terms: _terms, ...payload } = signUpData;
-    const res = await authFetch.post("sign-up", payload);
+    // (name, email, phone, password) are sent. The backend assigns the role.
+    const { name, email, phone, password } = signUpData;
+    const res = await authFetch.post("sign-up", { name, email, phone, password });
 
-    const setCookieHeader = res.headers["set-cookie"];
-    if (setCookieHeader) {
-      await setRefreshCookie(setCookieHeader);
-    }
+    await setRefreshCookie(res.headers["set-cookie"]);
 
-    return { success: true, data: res.data };
-  } catch (error: any) {
-    if (axios.isAxiosError(error) && error.response) {
-      return { success: false, error: error.response.data };
-    }
-    return {
-      success: false,
-      error: { status: 500, message: "Internal Server error" },
-    };
+    return { success: true as const, data: res.data };
+  } catch (error) {
+    return failure(error);
   }
 };
 
@@ -66,20 +61,11 @@ export const signInAction = async (signInData: SignInFormValues) => {
   try {
     const res = await authFetch.post("sign-in", signInData);
 
-    const setCookieHeader = res.headers["set-cookie"];
-    if (setCookieHeader) {
-      await setRefreshCookie(setCookieHeader);
-    }
+    await setRefreshCookie(res.headers["set-cookie"]);
 
-    return { success: true, data: res.data };
-  } catch (error: any) {
-    if (axios.isAxiosError(error) && error.response) {
-      return { success: false, error: error.response.data };
-    }
-    return {
-      success: false,
-      error: { status: 500, message: "Internal Server error" },
-    };
+    return { success: true as const, data: res.data };
+  } catch (error) {
+    return failure(error);
   }
 };
 
@@ -98,64 +84,76 @@ export const signInAction = async (signInData: SignInFormValues) => {
 export const getAccessTkAction = async () => {
   try {
     const cookieStore = await cookies();
-    const refreshTk = cookieStore.get("refresh_tk");
+    const refreshTk = cookieStore.get(REFRESH_COOKIE);
 
     if (!refreshTk) {
-      return { success: false, error: "No refresh token found" };
+      return {
+        success: false as const,
+        error: { status: 401, message: "No refresh token found" },
+      };
     }
 
     const res = await authFetch.get("access-tk", {
       headers: {
-        Cookie: `refresh_tk=${refreshTk.value}`,
+        Cookie: `${REFRESH_COOKIE}=${refreshTk.value}`,
       },
-      withCredentials: true,
     });
 
-    return { success: true, data: res.data };
-  } catch (error: any) {
-    if (axios.isAxiosError(error) && error.response) {
-      return { success: false, error: error.response.data };
-    }
-    return {
-      success: false,
-      error: { status: 500, message: "Internal Server error" },
-    };
+    return { success: true as const, data: res.data };
+  } catch (error) {
+    return failure(error);
   }
 };
 
 /**
- * Parses the backend's `Set-Cookie` header and re-emits the `refresh_tk`
- * cookie through the Next.js cookie store with explicit security attributes.
- *
- * Doing the re-emit ourselves guarantees the cookie ends up HTTP-only, scoped
- * to `/`, and with the 30-day lifetime that matches the JWT expiry, independent
- * of what proxies in front of Next.js might strip.
- *
- * NOTE: `secure` is `false` so it works over plain HTTP in local dev. Set it to
- * `true` once you serve the app over HTTPS in production.
+ * Turns a failed backend call into the `{ success: false, error }` shape. The
+ * backend's error body is passed on as is (it carries `status`, `message` and,
+ * for sign-up, the field errors); without a response (backend down) a generic
+ * message is returned instead of a stack trace.
  */
-async function setRefreshCookie(setCookieHeader: string[]) {
-  const cookieStore = await cookies();
-
-  // Find: Set-Cookie: refresh_tk=abc123...; HttpOnly; Path=/
-  const refreshTokenCookie = Array.isArray(setCookieHeader)
-    ? setCookieHeader.find((c) => c.startsWith("refresh_tk="))
-    : setCookieHeader;
-
-  if (refreshTokenCookie) {
-    const [nameValue] = refreshTokenCookie.split(";");
-    const [, value] = nameValue.split("=");
-
-    cookieStore.set({
-      name: "refresh_tk",
-      value,
-      httpOnly: true,
-      secure: false,
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-      sameSite: "lax",
-    });
+function failure(error: unknown) {
+  if (axios.isAxiosError(error) && error.response) {
+    const data = error.response.data;
+    // Some 401s come with a plain-text body; normalize to an object.
+    return {
+      success: false as const,
+      error:
+        typeof data === "object" && data !== null
+          ? data
+          : { status: error.response.status, message: String(data || "Request failed.") },
+    };
   }
+  return {
+    success: false as const,
+    error: { status: 503, message: "The server is not reachable. Please try again in a moment." },
+  };
+}
+
+/**
+ * Takes the refresh token from the backend's `Set-Cookie` header and sets it
+ * again through the Next.js cookie store, with explicit security attributes:
+ *
+ * - `httpOnly`: client-side JavaScript can never read it (XSS cannot steal it).
+ * - `secure` in production: only sent over HTTPS. Off in `next dev`, so plain
+ *   http://localhost works. (Browsers also accept secure cookies on localhost,
+ *   so `next start` works locally too.)
+ * - `sameSite: "lax"`: not sent with cross-site POSTs, which blocks CSRF.
+ * - 30 days, matching the token's lifetime in the backend.
+ */
+async function setRefreshCookie(setCookieHeader: string[] | string | undefined) {
+  const value = extractRefreshTk(setCookieHeader);
+  if (!value) return;
+
+  const cookieStore = await cookies();
+  cookieStore.set({
+    name: REFRESH_COOKIE,
+    value,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: REFRESH_COOKIE_MAX_AGE,
+    sameSite: "lax",
+  });
 }
 
 /**
@@ -167,5 +165,5 @@ async function setRefreshCookie(setCookieHeader: string[]) {
  */
 export const deleteRefreshCookie = async () => {
   const cookieStore = await cookies();
-  cookieStore.delete("refresh_tk");
+  cookieStore.delete(REFRESH_COOKIE);
 };

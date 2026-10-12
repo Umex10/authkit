@@ -9,22 +9,16 @@ target/
 # ===== Node / Next.js (apps/web) =====
 node_modules/
 .next/
+.next-e2e/
 out/
 playwright-report/
 test-results/
+test-reports/
 .playwright/
 **/playwright/.auth/
 blob-report/
 next-env.d.ts
 *.tsbuildinfo
-
-# ===== Expo / React Native (apps/mobile) =====
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-*.orig.*
-.metro-health-check*
 
 # ===== Env / secrets =====
 .env
