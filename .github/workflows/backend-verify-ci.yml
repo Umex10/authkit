@@ -55,17 +55,15 @@ jobs:
           # download) only when the dependencies in pom.xml change.
           cache-dependency-path: apps/backend/pom.xml
 
-      # Compiles, runs the tests, builds the jar and writes the JaCoCo report.
+      # Compiles, runs all tests (unit, slice and integration), builds the jar
+      # and writes the JaCoCo report. The integration tests need no key files
+      # on the runner: they write their own key pair into a temp folder.
       # -B: batch mode (no prompts, no progress bars in the log).
-      # TEMPORARY: the integration tests are excluded ("!" = all except) because
-      # BackendApplicationTests still needs local key files that do not exist
-      # on the runner. Remove the -Dtest part once that test creates its own
-      # keys.
       - name: Test and build (./mvnw verify)
         # Run the command in apps/backend, where mvnw and pom.xml live
         # (a "run" step starts in the repository root otherwise).
         working-directory: apps/backend
-        run: ./mvnw -B verify -Dtest='!com/authkit/backend/integration/**'
+        run: ./mvnw -B verify
 
       # Keeps the test results and the coverage report as an artifact: a zip
       # attached to this run, downloadable at the bottom of the run page.
