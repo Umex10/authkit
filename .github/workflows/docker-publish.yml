@@ -1,4 +1,7 @@
-# Builds the backend Docker image on main and pushes it to ghcr.io.
+# Builds the backend Docker image and pushes it to ghcr.io:
+# - on every push to main that touches the backend: tag "latest"
+# - on every version tag (v1.0.0, v1.2.3, ...): tags "1.0.0", "1.0", "1" and
+#   "latest", so a release can be pulled by its version number.
 # Feature branches are only built, not pushed (see docker-ci.yml).
 name: docker-publish
 
@@ -7,7 +10,11 @@ on:
     # Only main; a merge into main is a push to main as well.
     branches:
       - main
-    # Only run when something the image depends on changes.
+    # Version tags; "v*.*.*" matches v1.0.0 but not other tags.
+    tags:
+      - "v*.*.*"
+    # Only run when something the image depends on changes. GitHub applies
+    # this filter to branch pushes only; a tag push always runs.
     paths:
       - "apps/backend/**"
       - ".github/workflows/docker-publish.yml"
@@ -70,12 +77,16 @@ jobs:
           # (image names must not contain capital letters, e.g. "Umex10").
           images: ghcr.io/${{ github.repository_owner }}/authkit-backend
           # One tag rule per line (one image, several names):
-          # - "latest" always points to the newest image built from main.
-          # - "sha-<short commit>" points to exactly this commit, forever.
+          # - "latest": the newest image, from main or from the newest release.
+          # - semver rules, only on a version tag (v1.2.3, the "v" is dropped):
+          #   "1.2.3" exactly this release, forever; "1.2" and "1" move along
+          #   to the newest patch/minor release of that line.
           # Labels (e.g. the source repository) are created automatically.
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
 
       # Builds apps/backend/Dockerfile and pushes it under every tag from "meta".
       - name: Build and push backend image
@@ -85,7 +96,7 @@ jobs:
           context: apps/backend
           # Upload the image to ghcr.io after building it.
           push: true
-          # Image names with tags from the metadata step (latest, sha-<commit>).
+          # Image names with tags from the metadata step (latest, 1.2.3, 1.2, 1).
           tags: ${{ steps.meta.outputs.tags }}
           # Labels from the metadata step, e.g. the source repository, which
           # links the package to this repository on GitHub.
